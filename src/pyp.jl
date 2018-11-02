@@ -37,6 +37,7 @@ using DataFrames
 using PyPlot
 using LaTeXStrings
 using Parameters
+using LinearAlgebra
 using Dates
 
 # Load further modules
@@ -74,7 +75,7 @@ end
 ##########################
 
 """
-    rd_data(ifile; \*\*kwargs)
+    rd_data(ifile; \\*\\*kwargs)
 
 
 Read data from text file `ifile` in the following format:
@@ -90,10 +91,10 @@ Read data from text file `ifile` in the following format:
 If columns don't have the same length, it can be specified whether the first or last
 columns will be filled with `NaN`s.
 
-The function uses several keyword arguments (\*\*kwargs) for more freedom in the
+The function uses several keyword arguments (\\*\\*kwargs) for more freedom in the
 file format or the selection of data.
 
-### \*\*kwargs
+### \\*\\*kwargs
 
 - `dir` (`String`; default: `.`): Directory of the input file `ifile`
 - `ix` (`Int64`; default: `1`): Column index for column in `ifile` holding the x data
@@ -238,13 +239,13 @@ end #function rd_data
 
 
 """
-    load_PlotData(pltdata::DataFrames.DataFrame;  \*\*kwargs)
+    load_PlotData(pltdata::DataFrames.DataFrame;  \\*\\*kwargs)
 
 Pack x and y data with possible assoiciated errors from DataFrame `pltdata`
 as well as formatting parameters into a new DataType `PlotData`.
 
 
-### \*\*kwargs
+### \\*\\*kwargs
 
 + `err` (`String`):
   - `"None"` (no errors, **default**)
@@ -255,7 +256,7 @@ as well as formatting parameters into a new DataType `PlotData`.
   - `"factorx"`, `"factory"`, `"factor"` (x/y/x and y ⋅1/err and ⋅err, respectively)
   - `"pmfactorx"`, `"pmfactory"`, `"pmfactor"` (as above with different lower/upper values)
   - `"valuex"`, `"valuey"`, `"value"` (err value directly taken from column)
-+ `mt` (`Union{AbstractString,Int64}`): PyPlot marker type, see e.g. https://matplotlib.org/api/markers_api.html
++ `pt` (`Union{AbstractString,Int64}`): PyPlot marker type, see e.g. https://matplotlib.org/api/markers_api.html
   - `"None"` (**default**) to suppress use of markers
 + `lt` (`Union{String,Tuple{Int64,Int64},Array{Int64,1}}`), tuple or array with
   on/off PyPlot dash definitions
@@ -274,7 +275,7 @@ as well as formatting parameters into a new DataType `PlotData`.
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
 function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
-         mt::Union{AbstractString,Int64}="None",
+         pt::Union{AbstractString,Int64}="None",
          lt::Union{String,Tuple{Number,Number},Vector{Int64},Vector{Float64}}=Float64[],
          lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
          label::String="", alpha::Number=1, renameDF::Union{Bool,Vector{Symbol}}=true)
@@ -287,7 +288,7 @@ function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
     pltdata = rename_DF(pltdata, DFnames, err)
   elseif renameDF isa Array{Symbol, 1}
     if length(renameDF) ≠ 6
-      println("\'renameDF\' not correctly defined. Define all column names for")
+      println("\\'renameDF\\' not correctly defined. Define all column names for")
       println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped."); exit()
     end
     DFnames = deepcopy(renameDF)
@@ -318,17 +319,17 @@ function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
   # Return PlotData type
   return PlotData(x = pltdata[DFnames[1]], y = pltdata[DFnames[2]],
          xuerr = errors[4], xlerr = errors[3], yuerr = errors[2], ylerr = errors[1],
-         label = label, marker = mt, dashes = lt, colour = lc, lw = lw, alpha=alpha)
+         label = label, marker = pt, dashes = lt, colour = lc, lw = lw, alpha=alpha)
 end #function load_PlotData
 
 
 """
-    plot_data(plot_list::Union{Array{PlotData, 1}, Array{pyp.PlotData, 1}}, \*\*kwargs)
+    plot_data(plot_list::PlotData..., \\*\\*kwargs)
 
 Generate scatter and/or line plots from the varargs `plot_data` of Type `PlotData`.
 
 
-### \*\*kwargs
+### \\*\\*kwargs
 
 For all arguments concerning y data the following applies:
 - The dataset can be split into 2 subsets and a 2. y-axis with a different scale
@@ -344,7 +345,7 @@ Keyword arguments for `function plot_data` are:
   - **default:** `"model time / hours"`
 + `ylabel` (`Union{String, LaTeXString, Array{String,1}, Array{LaTeXString,1}}`):
   y axis label, `Array` can be used, if a second axis with a different label is introduced
-  - **default:** `"concentration / mlc cm\$^{-3}\$ s\$^{-1}\$"`
+  - **default:** `"concentration / mlc cm\$cd^{-3}\$ s\$^{-1}\$"`
 + `ti` (`Union{String, LaTeXString}`): Plot title
   - **default:** `""` (empty string) for no title
 + `twinax` (`Array{Int64,1}`): optional array to devide data into 2 subsets and assign second dataset to a 2. y-axis; use array of `length` of the PlotData with integers `1` and `2` to assign each data to axis 1 and 2
@@ -353,6 +354,7 @@ Keyword arguments for `function plot_data` are:
   set either x-, y- or both axes to a logarithmic scale;
   if 2. y-axis is present, arrays may be used to have different scales on each y-axis;
   (**default:** `""` – linear scale)
++ `logremove` (`Union{String, Vector{String}}`; **default:** `"neg"`): removes positve (`"pos"`) or negative (`"neg"`) values in the plotting data for logarithmic plots; leaving data unmanipulated with `"none"` might result in PyPlot failure; use a vector of strings for different treatment of the second axis.
 + `plot_type` (`String`): Choose between the following plot types:
   - `"line"`: line plot
   - `"scatter"`: scatter plot
@@ -375,11 +377,11 @@ Keyword arguments for `function plot_data` are:
   - Array of `length 1 or 2` with Arrays of `length(plot_data)` where inner arrays specify the line/marker colour of each `PlotData`
 + `alpha`: if alpha is set to a value `> 0` then all graphs will be displayed with this transparency value
 + `mticks` (`String`): Switch minor ticks on/off (**default:** "on")
-+ `nmxt` (`Union{Number,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
-+ `nmyt` (`Union{Int64, Array{Int64,1}}`):Size of interval between minor y ticks
++ `min_xticks` (`Union{Number,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
++ `min_yticks` (`Union{Int64, Array{Int64,1}}`):Size of interval between minor y ticks
   - `0` (**default**): automatic determination by PyPlot
   - If 2. y axis is defined, an array can be used to used different specifications for each axis
-+ `Mxtint`/`Mytint` (`Union{Number,Vector{Int64},Vector{Float64}}`/`Number`)
++ `maj_xticks`/`maj_yticks` (`Union{Number,Vector{Int64},Vector{Float64}}`/`Number`)
   interval size of major ticks in x- and y-axis, respectively; asign different intervals
   to 2nd y-axis using an array of integers
 + `xlims`/`ylims`: Tuple of minimum/maximum value for each axis
@@ -389,8 +391,8 @@ Keyword arguments for `function plot_data` are:
 + `figsiz` (`Tuple{Number,Number}`): figure size width × height in inches
   (**default:** `(6,4)`)
 + `fntsiz` (`Number`): default font size (**default:** `12`)
-+ `frw` (`Number`): default line width of outer axes frame (**default:** `1`)
-+ `tsc` (`Tuple{Number,Number}`): Tuple with scaling factors for length of major
++ `framewidth` (`Number`): default line width of outer axes frame (**default:** `1`)
++ `ticksize` (`Tuple{Number,Number}`): Tuple with scaling factors for length of major
   (first tuple entry) and minor (second tuple entry) ticks in relation to their
   width (**default:** `(4.5,2.5)`)
 + `cap_offset` (`Number`): deviation from default cap size of `3` of marker error bars
@@ -399,7 +401,7 @@ Keyword arguments for `function plot_data` are:
   labels, and legend, respectively, from default sizes. Numbers
   (positive or negative) will be added to fontsizes
   (**defaults:** `4`, `2`, `0`)
-+ `axcol` (`Union{String,Array{String,1}}`): colour of y axis label and tick numbers;
++ `axcolour` (`Union{String,Array{String,1}}`): colour of y axis label and tick numbers;
   if 2. y axis is defined, different values may be defined in an array for each axis
   (**default:** `"black"`)
 + `legpos` (`Union{String, Int64, Array{String,1}, Array{Int64,1}}`):
@@ -418,33 +420,38 @@ Keyword arguments for `function plot_data` are:
 - `legcol` (`Union{Int64, Array{Int64,1}}`): number of legend columns
   (**default:** `1`)
 """
-function plot_data(plot_list::Union{PlotData,pyp.PlotData}...;
+function plot_data(plot_list::PlotData...;
                   xlabel::Union{String, LaTeXString}="model time / hours",
                   ylabel::Union{String, LaTeXString, Vector{String}, Vector{LaTeXString}}=
                   "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
                   ti::Union{String, LaTeXString}="", twinax::Vector{Int64}=Int64[],
-                  logscale::Union{String, Vector{String}}="",
+                  logscale::Union{String, Vector{String}}="", logremove = "neg",
                   plot_type::String="own", cs::Union{String, Vector{String}}="", lt=[], pt="s",
                   lc::Union{String, Vector{String}}="black", alpha::Number=-1,
                   xlims=nothing, ylims=nothing, mticks::String="on",
-                  nmxt::Union{Int64,Vector{Int64},Vector{Float64}}=0, nmyt::Union{Int64, Vector{Int64}}=0,
-                  Mxtint::Union{Number,Vector{Int64},Vector{Float64}}=0, Mytint::Union{Number,Vector{Int64},Vector{Float64}}=0,
-                  figsiz::Tuple{Number,Number}=(6,4), fntsiz::Number=12,
-                  frw::Number=1, tsc::Tuple{Number,Number}=(4.5,2.5), cap_offset::Number=0,
-                  ti_offset::Number=4, ax_offset::Number=2,
-                  axcol::Union{String,Vector{String}}="black", leg_offset::Number=0,
+                  min_xticks::Union{Int64,Vector{Int64},Vector{Float64}}=0,
+                  min_yticks::Union{Int64, Vector{Int64}}=0,
+                  maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
+                  maj_yticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
+                  figsize::Tuple{Number,Number}=(6,4), fontsize::Number=12,
+                  framewidth::Number=1, ticksize::Tuple{Number,Number}=(4.5,2.5), cap_offset::Number=0,
+                  ti_offset::Number=4, ax_offset::Number=2, leg_offset::Number=0,
                   legpos::Union{String, Int64, Vector{String}, Vector{Int64}}="best",
-                  legcol::Union{Int64, Vector{Int64}}=1)
+                  axcolour::Union{String,Vector{String}}="black", legcol::Union{Int64, Vector{Int64}}=1)
 
   # Start plot
-  fig, ax1 = subplots(figsize=figsiz)
+  fig, ax1 = subplots(figsize=figsize)
   # Check for twin axes and devide datasets
-  plt, ax2, ax_2, ylabel, logscale, xlim, ylim, Mytint, nmyt, lc, lt, pt, axcol, legpos, legcol =
-    setup_axes(plot_list, twinax, ylabel, logscale, xlims, ylims, Mytint, nmyt,
-    plot_type, lc, lt, pt, alpha, axcol, legpos, legcol)
+  plt, ax2, ax_2, ylabel, logscale, logremove, xlimit, ylimit,
+    maj_yticks, min_yticks, lc, lt, pt, axcolour, legpos, legcol =
+    setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
+    maj_yticks, min_yticks, plot_type, lc, lt, pt, alpha, axcolour, legpos, legcol)
   if ax_2  ax = [ax1, ax2]
   else     ax = [ax1]
   end
+
+  # Ensure strictly positive or negative values for log plots
+  plt = remove_log(plt, logremove, logscale)
 
   # set colour scheme
   plt = set_cs(plt, plot_type, cs, lc, lt, pt, ax_2)
@@ -454,43 +461,38 @@ function plot_data(plot_list::Union{PlotData,pyp.PlotData}...;
   if ax_2  plt[2], ax2 = plt_DataWithErrors(plt[2], ax2, cap_offset)  end
 
   # Define logscales
-  xlim, ylim = logBounds(xlim, ylim, ax)
-  for i = 1:length(logscale)
-    ax[i], xlim[i] = set_log(plt[i], ax[i], xlim[i], logscale[i], "x",
-                      :x, :xlerr, :xuerr, :set_xlim, :set_xscale)
-    ax[i], ylim[i] = set_log(plt[i], ax[i], ylim[i], logscale[i], "y",
-                      :y, :ylerr, :yuerr, :set_ylim, :set_yscale)
-  end
+  ax, xlimit = set_log(plt, ax, xlimit, logscale, "x")
+  ax, ylimit = set_log(plt, ax, ylimit, logscale, "y")
 
   # Set axes limits
-  ax1[:set_xlim](xlim[1]); ax1[:set_ylim](ylim[1])
-  if ax_2  ax2[:set_xlim](xlim[2]); ax2[:set_ylim](ylim[2])  end
+  ax1[:set_xlim](xlimit[1]); ax1[:set_ylim](ylimit[1])
+  if ax_2  ax2[:set_xlim](xlimit[2]); ax2[:set_ylim](ylimit[2])  end
 
   # Set plot title
-  ax1[:set_title](ti, fontsize=fntsiz+ti_offset)
+  ax1[:set_title](ti, fontsize=fontsize+ti_offset)
 
   # Generate axes labels and legend, define axes label/tick colours
-  ax1[:set_xlabel](xlabel,fontsize=fntsiz+ax_offset)
+  ax1[:set_xlabel](xlabel,fontsize=fontsize+ax_offset)
   for n = 1:length(ylabel)
-    ax[n][:set_ylabel](ylabel[n],fontsize=fntsiz+ax_offset, color=axcol[n])
+    ax[n][:set_ylabel](ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
   end
-  [setp(ax[n][:get_yticklabels](),color=axcol[n]) for n = 1:length(axcol)]
+  [setp(ax[n][:get_yticklabels](),color=axcolour[n]) for n = 1:length(axcolour)]
 
   if legpos[1] ≠ "None" && any([p.label≠"" for p in plot_list])
-    ax1[:legend](fontsize=fntsiz+leg_offset, loc=legpos[1], ncols=legcol[1])
+    ax1[:legend](fontsize=fontsize+leg_offset, loc=legpos[1], ncol=legcol[1])
   end
   if ax_2 && legpos[2] ≠ "None" && any([p.label≠"" for p in plot_list])
-    ax2[:legend](fontsize=fntsiz+leg_offset, loc=legpos[2], ncols=legcol[2])
+    ax2[:legend](fontsize=fontsize+leg_offset, loc=legpos[2], ncol=legcol[2])
   end
 
   # Set ticks and optional minor ticks
-  if typeof(plot_list[1].x) ≠ Vector{DateTime}  if Mxtint > 0
-    xint = collect(ax1[:get_xlim]()[1]:Mxtint:ax1[:get_xlim]()[2])
+  if typeof(plot_list[1].x) ≠ Vector{DateTime}  if maj_xticks > 0
+    xint = collect(ax1[:get_xlim]()[1]:maj_xticks:ax1[:get_xlim]()[2])
     ax1[:set_xticks](xint)
     if ax_2  ax2[:set_xticks](xint)  end
   end  end
-  if Mytint[1] > 0  for i = 1:length(Mytint)
-    yint = collect(ax[i][:get_ylim]()[1]:Mytint[i]:ax[i][:get_ylim]()[2])
+  if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
+    yint = collect(ax[i][:get_ylim]()[1]:maj_yticks[i]:ax[i][:get_ylim]()[2])
     ax[i][:set_yticks](yint)
   end  end
   if mticks == "on"
@@ -500,46 +502,46 @@ function plot_data(plot_list::Union{PlotData,pyp.PlotData}...;
   end
   # Set minor x ticks
   if typeof(plot_list[1].x) ≠ Vector{DateTime}
-    if nmxt > 0
-      mx = matplotlib[:ticker][:MultipleLocator](nmxt)
+    if min_xticks > 0
+      mx = matplotlib[:ticker][:MultipleLocator](min_xticks)
       for a in ax
         a[:xaxis][:set_minor_locator](mx)
       end
     end
-  elseif nmxt isa Number
-    nmxt = [6,12,18]
+  elseif min_xticks isa Number
+    min_xticks = [6,12,18]
   end
   # Set minor y ticks
-  for i = 1:length(nmyt)
-    if nmyt[i] > 0
-      my = matplotlib[:ticker][:MultipleLocator](nmyt[i])
+  for i = 1:length(min_yticks)
+    if min_yticks[i] > 0
+      my = matplotlib[:ticker][:MultipleLocator](min_yticks[i])
       ax[i][:yaxis][:set_minor_locator](my)
     end
   end
   # Format ticks and frame
-  Mtlen = tsc[1]⋅frw
-  mtlen = tsc[2]⋅frw
+  Mtlen = ticksize[1]⋅framewidth
+  mtlen = ticksize[2]⋅framewidth
   for a in ax
     a[:tick_params]("both", which="both", direction="in", top="on", right="on",
-      labelsize=fntsiz, width=frw)
-    a[:grid](linestyle=":", linewidth = frw)
-    a[:spines]["bottom"][:set_linewidth](frw)
-    a[:spines]["top"][:set_linewidth](frw)
-    a[:spines]["left"][:set_linewidth](frw)
-    a[:spines]["right"][:set_linewidth](frw)
+      labelsize=fontsize, width=framewidth)
+    a[:grid](linestyle=":", linewidth = framewidth)
+    a[:spines]["bottom"][:set_linewidth](framewidth)
+    a[:spines]["top"][:set_linewidth](framewidth)
+    a[:spines]["left"][:set_linewidth](framewidth)
+    a[:spines]["right"][:set_linewidth](framewidth)
     if typeof(plot_list[1].x) ≠ Vector{DateTime}
       a[:tick_params]("both", which="major", length=Mtlen)
       a[:tick_params]("both", which="minor", length=mtlen)
     else
       a[:set_xlim](xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
-      if Mxtint isa Vector
+      if maj_xticks isa Vector
         majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b, %H:%M")
       else
         majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b")
       end
       minorformatter = matplotlib[:dates][:DateFormatter]("")
-      majorlocator = matplotlib[:dates][:HourLocator](byhour=Mxtint)
-      minorlocator = matplotlib[:dates][:HourLocator](byhour=nmxt)
+      majorlocator = matplotlib[:dates][:HourLocator](byhour=maj_xticks)
+      minorlocator = matplotlib[:dates][:HourLocator](byhour=min_xticks)
       a[:xaxis][:set_major_formatter](majorformatter)
       a[:xaxis][:set_minor_formatter](minorformatter)
       a[:xaxis][:set_major_locator](majorlocator)
@@ -554,9 +556,9 @@ function plot_data(plot_list::Union{PlotData,pyp.PlotData}...;
   return fig, ax
 end #function plot_data
 
-
+#=
 """
-    plot_stack(plot_list::Union{PlotData,pyp.PlotData}...; \*\*kwargs)
+    plot_stack(plot_list::Union{PlotData,pyp.PlotData}...; \\*\\*kwargs)
 
 Plot the `PlotData` listed in vararg `plot_list` as a stack plot, where the following
 keyword arguments are possible.
@@ -599,8 +601,8 @@ keyword arguments are possible.
 + `figsiz` (`Tuple{Number,Number}`): figure size width × height in inches
   (**default:** `(6,4)`)
 + `fntsiz` (`Number`): default font size (**default:** `12`)
-+ `frw` (`Number`): default line width of outer axes frame (**default:** `1`)
-+ `tsc` (`Tuple{Number,Number}`): Tuple with scaling factors for length of major
++ `framewidth` (`Number`): default line width of outer axes frame (**default:** `1`)
++ `ticksize` (`Tuple{Number,Number}`): Tuple with scaling factors for length of major
   (first tuple entry) and minor (second tuple entry) ticks in relation to their
   width (**default:** `(4.5,2.5)`)
 + `ti_offset`, `ax_offset`, `leg_offset`: Offsets for fontsizes of title, axes
@@ -632,8 +634,8 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
          alpha::Number=0, xlims=nothing, ylims=nothing, mticks::String="on",
          min_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0, min_yticks::Number=0,
          maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0, maj_yticks::Number=0,
-         figsiz::Tuple{Number,Number}=(6,4), fntsiz::Number=12, frw::Number=1,
-         tsc::Tuple{Number,Number}=(4.5,2.5), ti_offset::Number=4,
+         figsiz::Tuple{Number,Number}=(6,4), fntsiz::Number=12, framewidth::Number=1,
+         ticksize::Tuple{Number,Number}=(4.5,2.5), ti_offset::Number=4,
          ax_offset::Number=2, leg_offset::Number=0,
          legpos::Union{String, Int64}="best", legcol::Int64=1)
 
@@ -686,12 +688,12 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
   ax[:set_xlim](xlim)
   ylim = get_lim(ylims,ax,:get_ylim)
   ax[:set_ylim](ylim)
-  if contains(logscale,"x")
+  if occursin("x",logscale)
     xlim = set_log2(plot_list,xlim,:x)
     ax[:set_xlim](xlim)
     ax[:set_xscale]("log")
   end
-  if contains(logscale,"y")
+  if occursin("y",logscale)
     ylim = set_log2(plot_list,ylim,:y)
     ax[:set_ylim](ylim)
     ax[:set_yscale]("log")
@@ -706,7 +708,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
 
   if legpos ≠ "None" && any([p.label≠"" for p in plot_list])
     lbl = [p.label for p in plot_list]
-    ax[:legend](lbl, fontsize=fntsiz+leg_offset, loc=legpos, ncols=legcol)
+    ax[:legend](lbl, fontsize=fntsiz+leg_offset, loc=legpos, ncol=legcol)
   end
 
   # Set ticks and optional minor ticks
@@ -740,15 +742,15 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
     end
   end
   # Format ticks and frame
-  Mtlen = tsc[1]⋅frw
-  mtlen = tsc[2]⋅frw
+  Mtlen = ticksize[1]⋅framewidth
+  mtlen = ticksize[2]⋅framewidth
   ax[:tick_params]("both", which="both", direction="in", top="on", right="on",
-    labelsize=fntsiz, width=frw)
-  ax[:grid](linestyle=":", linewidth = frw)
-  ax[:spines]["bottom"][:set_linewidth](frw)
-  ax[:spines]["top"][:set_linewidth](frw)
-  ax[:spines]["left"][:set_linewidth](frw)
-  ax[:spines]["right"][:set_linewidth](frw)
+    labelsize=fntsiz, width=framewidth)
+  ax[:grid](linestyle=":", linewidth = framewidth)
+  ax[:spines]["bottom"][:set_linewidth](framewidth)
+  ax[:spines]["top"][:set_linewidth](framewidth)
+  ax[:spines]["left"][:set_linewidth](framewidth)
+  ax[:spines]["right"][:set_linewidth](framewidth)
   if typeof(plot_list[1].x) ≠ Vector{DateTime}
     ax[:tick_params]("both", which="major", length=Mtlen)
     ax[:tick_params]("both", which="minor", length=mtlen)
@@ -774,7 +776,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
   # Return PyPlot data
   return fig, ax
 end #function plot_stack
-
+=#
 
 """
     sel_ls(;cs::String="line",nc=1,nt=1)
@@ -883,7 +885,7 @@ function rename_DF(pltdata, DFnames, err)
   elseif startswith(err,"pm") && endswith(err,"y")
     names!(pltdata,DFnames[1:4])
   elseif endswith(err,"y")
-    names!(pltdata,DFnames[1:4])
+    names!(pltdata,DFnames[1:3])
   elseif startswith(err,"pm")
     names!(pltdata,DFnames)
   else
@@ -993,22 +995,22 @@ end #function calc_errors
 ### Functions associated with plot_data
 
 """
-setup_axes(plot_list, twinax, ylab, logscale, xlims, ylims, Mytint, nmyt, cs, axcol, legpos, legcol)
+setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, cs, axcolour, legpos, legcol)
 
 If `twinax` is an array split `plot_list` into 2 datasets based on the indices
 in `twinax`. Assure all paramters concerning y data are arrays of length 2, if
 a second axis is allowed or length 1 otherwise. Return `plot_list` as array of
 2 or 1 distinct lists an the adjusted parameters.
 """
-function setup_axes(plot_list, twinax, ylab, logscale, xlims, ylims, Mytint, nmyt,
-                    ptype, lc, lt, pt, alpha, axcol, legpos, legcol)
+function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks,
+                    ptype, lc, lt, pt, alpha, axcolour, legpos, legcol)
 
   # Set flag for second axis, asume no second axis
   ax_2 = false
   ax2 = nothing
-  xlim = Any[]; ylim = Any[]
+  xlim = []; ylim = []
 
-  [p.alpha = alpha for p in plot_list if alpha > 0]
+  [p.alpha = alpha for p in plot_list if alpha ≥ 0]
 
   # Set up second axis, if the twinax array is defined
   plt1 = PlotData[]; plt2 = PlotData[]
@@ -1075,24 +1077,25 @@ function setup_axes(plot_list, twinax, ylab, logscale, xlims, ylims, Mytint, nmy
 
     # Make sure, all parameters for both axes are arrays of length 2
     if logscale isa String logscale = String[logscale, logscale]  end
-    if axcol isa String axcol = String[axcol, axcol]  end
-    if Mytint isa Int64 Mytint = Int64[Mytint, Mytint]  end
-    if nmyt isa Int64 nmyt = Int64[nmyt, nmyt]  end
+    if logremove isa String logremove = String[logremove, logremove]  end
+    if axcolour isa String axcolour = String[axcolour, axcolour]  end
+    if maj_yticks isa Int64 maj_yticks = Int64[maj_yticks, maj_yticks]  end
+    if min_yticks isa Int64 min_yticks = Int64[min_yticks, min_yticks]  end
     if xlims == nothing
-      xlim = [[nothing, nothing],[nothing, nothing]]
+      xlimit = [[nothing, nothing],[nothing, nothing]]
     elseif xlims isa Tuple
       xl = [xlims[1],xlims[2]]
-      xlim = [xl, xl]
+      xlimit = [xl, xl]
     elseif xlims isa Array
-      xlim = [[xlims[1][1], xlims[1][2]], [xlims[2][1], xlims[2][2]]]
+      xlimit = [[xlims[1][1], xlims[1][2]], [xlims[2][1], xlims[2][2]]]
     end
     if ylims == nothing
-      ylim = [[nothing, nothing],[nothing, nothing]]
+      ylimit = [[nothing, nothing],[nothing, nothing]]
     elseif ylims isa Tuple
       yl = [ylims[1],ylims[2]]
-      ylim = [yl, yl]
+      ylimit = [yl, yl]
     elseif ylims isa Array
-      ylim = [[ylims[1][1], ylims[1][2]], [ylims[2][1], ylims[2][2]]]
+      ylimit = [[ylims[1][1], ylims[1][2]], [ylims[2][1], ylims[2][2]]]
     end
     if !isa(legpos, Array) legpos = [legpos, legpos]  end
     if legcol isa Int64 legcol = [legcol, legcol]  end
@@ -1122,18 +1125,19 @@ function setup_axes(plot_list, twinax, ylab, logscale, xlims, ylims, Mytint, nmy
     # If no 2nd axis, make sure, all parameters for both axes are arrays of length 1
     # and not single parameters (numbers, strings...)
     if logscale isa String logscale = String[logscale]  end
-    if axcol isa String axcol = String[axcol]  end
-    if Mytint isa Int64 Mytint = Int64[Mytint]  end
-    if nmyt isa Int64 nmyt = Int64[nmyt]  end
+    if logremove isa String logremove = String[logremove]  end
+    if axcolour isa String axcolour = String[axcolour]  end
+    if maj_yticks isa Int64 maj_yticks = Int64[maj_yticks]  end
+    if min_yticks isa Int64 min_yticks = Int64[min_yticks]  end
     if xlims == nothing
-      xlim = [[nothing, nothing]]
+      xlimit = [[nothing, nothing]]
     elseif xlims isa Tuple
-      xlim = [[xlims[1],xlims[2]]]
+      xlimit = [[xlims[1],xlims[2]]]
     end
     if ylims == nothing
-      ylim = [[nothing, nothing]]
+      ylimit = [[nothing, nothing]]
     elseif ylims isa Tuple
-      ylim = [[ylims[1],ylims[2]]]
+      ylimit = [[ylims[1],ylims[2]]]
     end
     if !isa(legpos, Array) legpos = [legpos]  end
     if legcol isa Int64  legcol = [legcol]  end
@@ -1152,7 +1156,7 @@ function setup_axes(plot_list, twinax, ylab, logscale, xlims, ylims, Mytint, nmy
   end
 
   # Return adjusted data
-  return plt, ax2, ax_2, ylab, logscale, xlim, ylim, Mytint, nmyt, lc, lt, pt, axcol, legpos, legcol
+  return plt, ax2, ax_2, ylab, logscale, logremove, xlimit, ylimit, maj_yticks, min_yticks, lc, lt, pt, axcolour, legpos, legcol
 end #function setup_axes
 
 
@@ -1349,35 +1353,110 @@ end #function redef_err
 
 
 """
-    set_log(plt, ax, lims, logscale, x, val, low, high, cmd1, cmd2)
+    set_log(plt, ax, lims, logscale, x)
 
 Set x- and/or y-axis to log scale, if the string `logscale` consists of `"x"` or
 `"y"` or `"xy"`. Adjust minimum/maximum values of the respective axis for logscale.
 """
-function set_log(plt, ax, lims, logscale, x, val, low, high, cmd1, cmd2)
-  if contains(logscale,x)
-    xmin = Float64[]; xmax = Float64[]
-    for p in plt
-      if getfield(p, high) == nothing
-        push!(xmin, minimum(getfield(p, val)))
-        push!(xmax, maximum(getfield(p, val)))
+function set_log(plt, ax, lims, logscale, x)
+
+  val = Symbol(x); low = Symbol("$(x)lerr"); high = Symbol("$(x)uerr")
+  cmd1 = Symbol("set_$(x)lim"); cmd2 = Symbol("set_$(x)scale")
+  limits = []
+  for i = 1:length(lims)
+    if occursin(x,logscale[i])
+      mval = [getfield(n, val) for n in plt[i]]
+      if lims[i][1] == nothing
+        minerr = [getfield(n, low) for n in plt[i]]
+        minerr = minerr[minerr.≠nothing]
+        if !isempty(minerr)
+          minerr = minimum(minimum.(minerr))
+          xmin = min(minimum(minimum.(mval)), minerr)
+        else
+          xmin = minimum(minimum.(mval))
+        end
+        xmin = 10^floor(log10(minimum(xmin)))
       else
-        push!(xmin, minimum(getfield(p, low)))
-        push!(xmax, maximum(getfield(p, high)))
+        xmin = lims[i][1]
       end
+      if lims[i][2] == nothing
+        maxerr = [getfield(n, high) for n in plt[i]]
+        maxerr = maxerr[maxerr.≠nothing]
+        if !isempty(maxerr)
+          maxerr = maximum(maximum.(maxerr))
+          xmax = max(maximum(maximum.(mval)), maxerr)
+        else
+          xmax = maximum(maximum.(mval))
+        end
+        xmax = 10^ceil(log10(maximum(xmax)))
+      else
+        xmax = lims[i][2]
+      end
+      push!(limits, [xmin, xmax])
+      ax[i][cmd1](limits[i])
+      ax[i][cmd2]("log")
+    else
+      push!(limits, lims[i])
     end
-    xmin = 10^floor(log10(minimum(xmin)))
-    xmax = 10^ceil(log10(maximum(xmax)))
-    lims = [xmin, xmax]
-    ax[cmd1](lims)
-    ax[cmd2]("log")
-    return ax, lims
   end
 
-  return ax, lims
+  return ax, limits
 end #function set_log
 
 
+"""
+function remove_log(plt, logremove::Union{String, Vector{String}}, logscale::Union{String, Vector{String}})
+
+Depending on the keyword of `logremove`, set all positive or negative values to
+zero in PlotData `plt`, if `logscale` is set.
+"""
+function remove_log(plt, logremove::Union{String, Vector{String}},
+  logscale::Union{String, Vector{String}})
+
+  for i = 1:length(plt)
+    if logremove[i] == "pos" && occursin("x", logscale[i])
+      plt[i] = rm_log(plt[i], "x", >)
+    end
+    if logremove[i] == "pos" && occursin("y", logscale[i])
+      plt[i] = rm_log(plt[i], "y", >)
+    end
+    if logremove[i] == "neg" && occursin("x", logscale[i])
+      plt[i] = rm_log(plt[i], "x", <)
+    end
+    if logremove[i] == "neg" && occursin("y", logscale[i])
+      plt[i] = rm_log(plt[i], "y", <)
+    end
+  end
+
+  return plt
+end #function remove_log
+
+
+"""
+    rm_log(p, x::String, rel)
+
+In the PlotData of the current axis `p`, set x or y data (including errors)
+defined by `x` to zero, if it is `>` or `<` `0` as defined by `rel`.
+"""
+function rm_log(p, x::String, rel)
+  for i = 1:length(p)
+    rv = findall(rel.(getfield(p[i], Symbol(x)), 0.))
+    pv = getfield(p[i], Symbol(x)); pv[rv] .= 0.
+    if getfield(p[i], Symbol("$(x)lerr")) ≠ nothing
+      rl = findall(rel.(getfield(p[i], Symbol("$(x)lerr")), 0.))
+      pl = getfield(p[i], Symbol("$(x)lerr")); pl[rl] .= 0.
+    end
+    if getfield(p[i], Symbol("$(x)uerr")) ≠ nothing
+      ru = findall(rel.(getfield(p[i], Symbol("$(x)uerr")), 0.))
+      pu = getfield(p[i], Symbol("$(x)uerr")); pu[ru] .= 0.
+    end
+  end
+
+  return p
+end
+
+
+#=
 """
     logBounds(xlims_orig, ylims_orig, ax)
 
@@ -1397,7 +1476,6 @@ function logBounds(xlims_orig, ylims_orig, ax)
   end
   return xlims, ylims
 end
-
 
 function get_lim(lim,ax,cmd)
   if lim == nothing
@@ -1464,5 +1542,5 @@ function draw_boundaries(alpha,xdata,ydata,colours,lt,ax)
 
   return ax
 end
-
+=#
 end #module pyp
