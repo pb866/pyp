@@ -22,7 +22,7 @@ Load data and plot with PyPlot.
 - rename_DF
 - calc_errors
 - setup_axes
-- set_cs
+- set_style
 - plt_DataWithErrors
 - redef_err
 - set_log
@@ -63,7 +63,8 @@ export rd_data,
   ylerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
   label::Union{Nothing,AbstractString}=""
   marker::Union{AbstractString,Int64}="None"
-  dashes::Union{Tuple{Number,Number},Vector{Float64},Vector{Int64},Vector{Any}}=Float64[]
+  dashes::
+    Union{Tuple{Number,Number},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[]
   colour::Union{Nothing,AbstractString}=nothing
   lw::Number=1.4
   alpha::Number=1
@@ -356,11 +357,10 @@ Keyword arguments for `function plot_data` are:
   (**default:** `""` – linear scale)
 + `logremove` (`Union{String, Vector{String}}`; **default:** `"neg"`): removes positve (`"pos"`) or negative (`"neg"`) values in the plotting data for logarithmic plots; leaving data unmanipulated with `"none"` might result in PyPlot failure; use a vector of strings for different treatment of the second axis.
 + `plot_type` (`String`): Choose between the following plot types:
-  - `"line"`: line plot
-  - `"scatter"`: scatter plot
-  - `"both"`: markers connected by lines
-  - `"mix"`: mix of line and scatter plots or both; for this plot type `lc`, `lt`, and `pt` need to be defined (see below)
-  -  `"own"` (**default**): Use formats as predefined by the PlotData
+  - `"line"`: line plot (solid lines or as defined by `lt`)
+  - `"scatter"`: scatter plot (squares or as defined by `pt`)
+  - `"both"`: markers connected by lines (squares connected by solid lines or as defined by `lt` and/or `pt`)
+  -  `"default"`: Use formats as predefined by the PlotData or defined by `kwargs` `ls`, `pt`, and `lc`/`cs`
 + `cs` (`Union{String, Array{String,1}}`): Define colour scheme `default`, `source`
   or `sink` from `function sel_ls`; array with 2 different colour schemes may be
   used in case of 2. y-axis
@@ -426,9 +426,9 @@ function plot_data(plot_list::PlotData...;
                   "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
                   ti::Union{String, LaTeXString}="", twinax::Vector{Int64}=Int64[],
                   logscale::Union{String, Vector{String}}="", logremove = "neg",
-                  plot_type::String="own", cs::Union{String, Vector{String}}="", lt=[], pt="s",
-                  lc::Union{String, Vector{String}}="black", alpha::Number=-1,
-                  xlims=nothing, ylims=nothing, mticks::String="on",
+                  plot_type::String="default", cs::Union{String, Vector{String}}="",
+                  lt="default", pt="default", lc::Union{String, Vector{String}}="default",
+                  alpha::Number=-1, xlims=nothing, ylims=nothing, mticks::String="on",
                   min_xticks::Union{Int64,Vector{Int64},Vector{Float64}}=0,
                   min_yticks::Union{Int64, Vector{Int64}}=0,
                   maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
@@ -443,9 +443,9 @@ function plot_data(plot_list::PlotData...;
   fig, ax1 = subplots(figsize=figsize)
   # Check for twin axes and devide datasets
   plt, ax2, ax_2, ylabel, logscale, logremove, xlimit, ylimit,
-    maj_yticks, min_yticks, lc, lt, pt, axcolour, legpos, legcol =
+    maj_yticks, min_yticks, cs, lc, lt, pt, axcolour, legpos, legcol =
     setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
-    maj_yticks, min_yticks, plot_type, lc, lt, pt, alpha, axcolour, legpos, legcol)
+    maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour, legpos, legcol)
   if ax_2  ax = [ax1, ax2]
   else     ax = [ax1]
   end
@@ -454,7 +454,7 @@ function plot_data(plot_list::PlotData...;
   plt = remove_log(plt, logremove, logscale)
 
   # set colour scheme
-  plt = set_cs(plt, plot_type, cs, lc, lt, pt, ax_2)
+  plt = set_style(plt, plot_type, cs, lc, lt, pt, ax_2)
 
   # Plot data and associated errors
   plt[1], ax1 = plt_DataWithErrors(plt[1], ax1, cap_offset)
@@ -995,7 +995,7 @@ end #function calc_errors
 ### Functions associated with plot_data
 
 """
-setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, cs, axcolour, legpos, legcol)
+    setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour, legpos, legcol)
 
 If `twinax` is an array split `plot_list` into 2 datasets based on the indices
 in `twinax`. Assure all paramters concerning y data are arrays of length 2, if
@@ -1003,7 +1003,7 @@ a second axis is allowed or length 1 otherwise. Return `plot_list` as array of
 2 or 1 distinct lists an the adjusted parameters.
 """
 function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks,
-                    ptype, lc, lt, pt, alpha, axcolour, legpos, legcol)
+                    ptype, cs, lc, lt, pt, alpha, axcolour, legpos, legcol)
 
   # Set flag for second axis, asume no second axis
   ax_2 = false
@@ -1033,45 +1033,25 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
         # check whether an array of definitions or a single definition exists
         # and assign either the current array entry to the respective axis
         # or the default value for line colour, type and marker type
-        if ptype == "own" || ptype == "mix"
-          if !isempty(lt) && (lt[i] isa Tuple || lt[i] isa Vector || lt[i] isa String)
-            push!(dt1,lt[i])
-          else
-            push!(dt1,lt)
-          end
-          if pt isa Vector
-            push!(mt1,pt[i])
-          else
-            push!(mt1,pt)
-          end
-          if lc isa Vector
-            push!(cl1,lc[i])
-          else
-            push!(cl1,lc)
-          end
+        if !isempty(lt) && (lt[i] isa Tuple || lt[i] isa Vector || lt[i] isa String)
+          push!(dt1,lt[i])
+        else
+          push!(dt1,lt)
         end
+        if pt isa Vector  push!(mt1,pt[i])  else  push!(mt1,pt)  end
+        if lc isa Vector  push!(cl1,lc[i])  else  push!(cl1,lc)  end
       else
         push!(plt2,plot_list[i])
         # check whether an array of definitions or a single definition exists
         # and assign either the current array entry to the respective axis
         # or the default value for line colour, type and marker type
-        if ptype == "own" || ptype == "mix"
-          if !isempty(lt) && (lt[i] isa Tuple || lt[i] isa Vector || lt[i] isa String)
-            push!(dt2,lt[i])
-          else
-            push!(dt2,lt)
-          end
-          if pt isa Vector
-            push!(mt2,pt[i])
-          else
-            push!(mt2,pt)
-          end
-          if lc isa Vector
-            push!(cl2,lc[i])
-          else
-            push!(cl2,lc)
-          end
+        if !isempty(lt) && (lt[i] isa Tuple || lt[i] isa Vector || lt[i] isa String)
+          push!(dt2,lt[i])
+        else
+          push!(dt2,lt)
         end
+        if pt isa Vector  push!(mt2,pt[i])  else  push!(mt2,pt)  end
+        if lc isa Vector  push!(cl2,lc[i])  else  push!(cl2,lc)  end
       end
     end
 
@@ -1105,23 +1085,13 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
     # check whether an array of definitions or a single definition exists
     # and assign either the current array entry to the respective axis
     # or the default value for line colour, type and marker type
-    if ptype == "own" || ptype == "mix"
-      if !isempty(lt) && (lt[1] isa Tuple || lt[1] isa Vector || lt[1] isa String)
-        dt1 = lt
-      else
-        dt1 = [lt for i in plot_list]
-      end
-      if pt isa Vector
-        mt1 = pt
-      else
-        mt1 = [pt for i in plot_list]
-      end
-      if lc isa Vector
-        cl1 = lc
-      else
-        cl1 = [lc for i in plot_list]
-      end
+    if !isempty(lt) && (lt[1] isa Tuple || lt[1] isa Vector || lt[1] isa String)
+      dt1 = lt
+    else
+      dt1 = [lt for i in plot_list]
     end
+    if pt isa Vector  mt1 = pt  else  mt1 = [pt for i in plot_list]  end
+    if lc isa Vector  cl1 = lc  else  cl1 = [lc for i in plot_list]  end
     # If no 2nd axis, make sure, all parameters for both axes are arrays of length 1
     # and not single parameters (numbers, strings...)
     if logscale isa String logscale = String[logscale]  end
@@ -1129,15 +1099,11 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
     if axcolour isa String axcolour = String[axcolour]  end
     if maj_yticks isa Int64 maj_yticks = Int64[maj_yticks]  end
     if min_yticks isa Int64 min_yticks = Int64[min_yticks]  end
-    if xlims == nothing
-      xlimit = [[nothing, nothing]]
-    elseif xlims isa Tuple
-      xlimit = [[xlims[1],xlims[2]]]
+    if xlims == nothing     xlimit = [[nothing, nothing]]
+    elseif xlims isa Tuple  xlimit = [[xlims[1],xlims[2]]]
     end
-    if ylims == nothing
-      ylimit = [[nothing, nothing]]
-    elseif ylims isa Tuple
-      ylimit = [[ylims[1],ylims[2]]]
+    if ylims == nothing     ylimit = [[nothing, nothing]]
+    elseif ylims isa Tuple  ylimit = [[ylims[1],ylims[2]]]
     end
     if !isa(legpos, Array) legpos = [legpos]  end
     if legcol isa Int64  legcol = [legcol]  end
@@ -1145,23 +1111,26 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
   if ylab isa String  ylab = String[ylab]  end
   if ax_2
     plt = [plt1, plt2]
+    cs = [cs, cs]
     lc = [cl1, cl2]
     lt = [dt1, dt2]
     pt = [mt1, mt2]
+    if !isa(cs, Vector) cs = [cs, cs]  end
   else
     plt = [plt1]
+    cs = [cs]
     lc = [cl1]
     lt = [dt1]
     pt = [mt1]
   end
 
   # Return adjusted data
-  return plt, ax2, ax_2, ylab, logscale, logremove, xlimit, ylimit, maj_yticks, min_yticks, lc, lt, pt, axcolour, legpos, legcol
+  return plt, ax2, ax_2, ylab, logscale, logremove, xlimit, ylimit, maj_yticks, min_yticks, cs, lc, lt, pt, axcolour, legpos, legcol
 end #function setup_axes
 
 
 """
-    set_cs(plt, ptype, cs, lc, lt, pt, ax_2)
+    set_style(plt, ptype, cs, lc, lt, pt, ax_2)
 
 Set colour scheme for `plt` holding `PlotData` to `cs` from
 function `sel_ls`. If colour scheme is set to `"own"` or `"mix"` for any array
@@ -1169,90 +1138,40 @@ element in `plt`, `lc`, `lt`, and `pt` must hold valid definitions of line colou
 line and point (marker) types at this array position. The boolean `ax_2` is needed
 to specify, whether a second axis is used.
 """
-function set_cs(plt, ptype, cs, lc, lt, pt, ax_2)
-  if ptype == "own"
-    return plt
-  elseif ptype == "mix"
-    for i = 1:length(plt[1])
-      plt[1][i].colour = lc[1][i]
-      plt[1][i].dashes = lt[1][i]
-      plt[1][i].marker = pt[1][i]
+function set_style(plt, ptype, cs, lc, lt, pt, ax_2)
+
+  # Loop over cs → set counter for plot data
+  # → reset counter, if second colour scheme for second axis is used
+  for i = 1:length(plt)
+    if ptype == "line"
+      [plt[i][j].dashes = Int64[] for j = 1:length(lt[i])]
+    elseif ptype == "scatter"
+      [plt[i][j].dashes = "None" for j = 1:length(lt[i])]
+    elseif ptype == "both"
+      [plt[i][j].dashes = Int64[] for j = 1:length(lt[i])]
+      [plt[i][j].marker = "s" for j = 1:length(pt[i])]
     end
-    if ax_2  for i = 1:length(plt[2])
-      plt[2][i].colour = lc[2][i]
-      plt[2][i].dashes = lt[2][i]
-      plt[2][i].marker = pt[2][i]
-    end end
-  elseif cs≠""
-    for i = 1:length(plt[1])
-      if cs isa String
-        cl, dt, mt = sel_ls(cs, lc=i, lt=i, pt=i)
-      else
-        cl, dt, mt = sel_ls(cs[1], lc=i, lt=i, pt=i)
-      end
-      plt[1][i].colour = cl
-      if ptype == "line"
-        plt[1][i].dashes = dt
-        plt[1][i].marker = "None"
-      elseif ptype == "scatter"
-        plt[1][i].dashes = (0,1)
-        plt[1][i].marker = mt
-      elseif ptype == "both"
-        plt[1][i].dashes = dt
-        plt[1][i].marker = mt
-      end
+  end
+  for i = 1:length(plt)  if cs[i]≠""
+    for j = 1:length(plt[i])
+      cl, dt, mt = sel_ls(cs[i], lc=j, lt=j, pt=j)
+      plt[i][j].colour = cl
+      if ptype ≠ "scatter"  plt[i][j].dashes = dt  end
+      if ptype ≠ "line"  plt[i][j].marker = mt  end
     end
-    if ax_2  for i = 1:length(plt[2])
-      if cs isa String
-        j = i + length(plt[1])
-        cl, dt, mt = sel_ls(cs, lc=j, lt=j, pt=j)
-      else
-        cl, dt, mt = sel_ls(cs[2], lc=i, lt=i, pt=i)
-      end
-      plt[2][i].colour = cl
-      if ptype == "line"
-        plt[2][i].dashes = dt
-        plt[2][i].marker = "None"
-      elseif ptype == "scatter"
-        plt[2][i].dashes = (0,1)
-        plt[2][i].marker = mt
-      elseif ptype == "both"
-        plt[2][i].dashes = dt
-        plt[2][i].marker = mt
-      end
-    end end
-  else
-    for i = 1:length(plt[1])
-      cl, dt, mt = sel_ls(lt=i, pt=i)
-      if ptype == "line"
-        plt[1][i].dashes = dt
-        plt[1][i].marker = "None"
-      elseif ptype == "scatter"
-        plt[1][i].dashes = (0,1)
-        plt[1][i].marker = mt
-      elseif ptype == "both"
-        plt[1][i].dashes = dt
-        plt[1][i].marker = mt
-      end
-    end
-    if ax_2  for i = 1:length(plt[2])
-      j = i + length(plt[1])
-      cl, dt, mt = sel_ls(lt=j, pt=j)
-      if ptype == "line"
-        plt[2][i].dashes = dt
-        plt[2][i].marker = "None"
-      elseif ptype == "scatter"
-        plt[2][i].dashes = (0,1)
-        plt[2][i].marker = mt
-      elseif ptype == "both"
-        plt[2][i].dashes = dt
-        plt[2][i].marker = mt
-      end
-    end end
+  end  end
+  for i = 1:length(lc), j = 1:length(lc[i])
+    if lc[i][j] ≠ "default"  plt[i][j].colour = lc[i][j]  end
+  end
+  for i = 1:length(lc), j = 1:length(lc[i])
+    if lt[i][j] ≠ "default"  plt[i][j].dashes = lt[i][j]  end
+  end
+  for i = 1:length(lc), j = 1:length(lc[i])
+    if pt[i][j] ≠ "default"  plt[i][j].marker = pt[i][j]  end
   end
 
   return plt
-end #function set_cs
+end #function set_style
 
 
 """
@@ -1278,7 +1197,7 @@ function plt_DataWithErrors(plt, ax, offset)
       ax[:fill_between](plt[i].x, plt[i].ylerr, plt[i].yuerr,
           color=plt[i].colour, alpha=0.2)
     elseif plt[i].xuerr ≠ nothing && plt[i].yuerr ≠ nothing
-      if !isempty(plt[i].dashes) && plt[i].dashes[1] == 0
+      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
           yerr=[yerr[i][:lower], yerr[i][:upper]], ls = "None",
           marker=plt[i].marker, color=plt[i].colour,
@@ -1290,7 +1209,7 @@ function plt_DataWithErrors(plt, ax, offset)
           label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       end
     elseif plt[i].yuerr ≠ nothing
-      if !isempty(plt[i].dashes) && plt[i].dashes[1] == 0
+      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
           ls = "None", marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
@@ -1300,7 +1219,7 @@ function plt_DataWithErrors(plt, ax, offset)
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       end
     elseif plt[i].xuerr ≠ nothing
-      if !isempty(plt[i].dashes) && plt[i].dashes[1] == 0
+      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
           ls = "None", marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
@@ -1310,7 +1229,7 @@ function plt_DataWithErrors(plt, ax, offset)
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       end
     else
-      if !isempty(plt[i].dashes) && plt[i].dashes[1] == 0
+      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:scatter](plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, alpha=plt[i].alpha)
       else
