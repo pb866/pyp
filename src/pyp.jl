@@ -63,8 +63,8 @@ export rd_data,
   ylerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
   label::Union{Nothing,AbstractString}=""
   marker::Union{AbstractString,Int64}="None"
-  dashes::
-    Union{Tuple{Number,Number},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[]
+  dashes::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},
+    Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[]
   colour::Union{Nothing,AbstractString}=nothing
   lw::Number=1.4
   alpha::Number=1
@@ -277,7 +277,7 @@ as well as formatting parameters into a new DataType `PlotData`.
 """
 function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
          pt::Union{AbstractString,Int64}="None",
-         lt::Union{String,Tuple{Number,Number},Vector{Int64},Vector{Float64}}=Float64[],
+         lt::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[],
          lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
          label::String="", alpha::Number=1, renameDF::Union{Bool,Vector{Symbol}}=true)
 
@@ -404,7 +404,7 @@ Keyword arguments for `function plot_data` are:
 + `axcolour` (`Union{String,Array{String,1}}`): colour of y axis label and tick numbers;
   if 2. y axis is defined, different values may be defined in an array for each axis
   (**default:** `"black"`)
-+ `legpos` (`Union{String, Int64, Array{String,1}, Array{Int64,1}}`):
++ `legpos` (`Union{String, Int64}`):
   position of the legend; choose from the following options:
   - `"best"` or `0` (default)
   - `"upper right"` or `1`
@@ -417,7 +417,7 @@ Keyword arguments for `function plot_data` are:
   - `"lower center"` or `8`
   - `"upper center"` or `9`
   - `"center"` or `10`
-- `legcol` (`Union{Int64, Array{Int64,1}}`): number of legend columns
+- `legcol` (`Int64`): number of legend columns
   (**default:** `1`)
 """
 function plot_data(plot_list::PlotData...;
@@ -434,62 +434,81 @@ function plot_data(plot_list::PlotData...;
                   maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
                   maj_yticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
                   figsize::Tuple{Number,Number}=(6,4), fontsize::Number=12,
-                  framewidth::Number=1, ticksize::Tuple{Number,Number}=(4.5,2.5), cap_offset::Number=0,
-                  ti_offset::Number=4, ax_offset::Number=2, leg_offset::Number=0,
-                  legpos::Union{String, Int64, Vector{String}, Vector{Int64}}="best",
-                  axcolour::Union{String,Vector{String}}="black", legcol::Union{Int64, Vector{Int64}}=1)
+                  framewidth::Number=1, ticksize::Tuple{Number,Number}=(4.5,2.5),
+                  cap_offset::Number=0, ti_offset::Number=4, ax_offset::Number=2,
+                  leg_offset::Number=0, legpos::Union{String, Int64}="best",
+                  legcol::Int64=1, axcolour::Union{String,Vector{String}}="black",
+                  # Aliases:
+                  title::Union{String, LaTeXString}="",
+                  colorscheme::Union{String, Vector{String}}="",
+                  colourscheme::Union{String, Vector{String}}="",
+                  linestyle="default", linetype="default",
+                  dashes="default", mt="default",
+                  linecolor::Union{String, Vector{String}}="default",
+                  linecolour::Union{String, Vector{String}}="default",
+                  color::Union{String, Vector{String}}="default",
+                  colour::Union{String, Vector{String}}="default",
+                  legloc::Union{String, Int64}="best", loc::Union{String, Int64}="best")
+
+  # Check kwarg aliases as set all to the same value
+  ti, cs, lt, pt, lc, legpos = checkaliases(ti, title, cs, colorscheme, colourscheme,
+    lt, linestyle, linetype, pt, mt, dashes, lc, linecolor, linecolour, color, colour,
+    legpos, legloc, loc)
 
   # Start plot
   fig, ax1 = subplots(figsize=figsize)
   # Check for twin axes and devide datasets
-  plt, ax2, ax_2, ylabel, logscale, logremove, xlimit, ylimit,
-    maj_yticks, min_yticks, cs, lc, lt, pt, axcolour, legpos, legcol =
+  plt, ax2, ylabel, logscale, logremove, xlimit, ylimit,
+    maj_yticks, min_yticks, cs, lc, lt, pt, axcolour =
     setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
-    maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour, legpos, legcol)
-  if ax_2  ax = [ax1, ax2]
-  else     ax = [ax1]
-  end
+    maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
+  ax = [ax1, ax2]
 
   # Ensure strictly positive or negative values for log plots
   plt = remove_log(plt, logremove, logscale)
 
   # set colour scheme
-  plt = set_style(plt, plot_type, cs, lc, lt, pt, ax_2)
+  plt = set_style(plt, plot_type, cs, lc, lt, pt)
 
   # Plot data and associated errors
-  plt[1], ax1 = plt_DataWithErrors(plt[1], ax1, cap_offset)
-  if ax_2  plt[2], ax2 = plt_DataWithErrors(plt[2], ax2, cap_offset)  end
+  for i = 1:length(plt)
+    plt[i], ax[i] = plt_DataWithErrors(plt[i], ax[i], cap_offset)
+  end
 
   # Define logscales
   ax, xlimit = set_log(plt, ax, xlimit, logscale, "x")
   ax, ylimit = set_log(plt, ax, ylimit, logscale, "y")
 
   # Set axes limits
-  ax1[:set_xlim](xlimit[1]); ax1[:set_ylim](ylimit[1])
-  if ax_2  ax2[:set_xlim](xlimit[2]); ax2[:set_ylim](ylimit[2])  end
+  for i = 1:length(plt)
+    ax[i][:set_xlim](xlimit[i]); ax[i][:set_ylim](ylimit[i])
+  end
 
   # Set plot title
-  ax1[:set_title](ti, fontsize=fontsize+ti_offset)
+  ax[1][:set_title](ti, fontsize=fontsize+ti_offset)
 
   # Generate axes labels and legend, define axes label/tick colours
-  ax1[:set_xlabel](xlabel,fontsize=fontsize+ax_offset)
+  ax[1][:set_xlabel](xlabel,fontsize=fontsize+ax_offset)
   for n = 1:length(ylabel)
     ax[n][:set_ylabel](ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
   end
   [setp(ax[n][:get_yticklabels](),color=axcolour[n]) for n = 1:length(axcolour)]
 
-  if legpos[1] ≠ "None" && any([p.label≠"" for p in plot_list])
-    ax1[:legend](fontsize=fontsize+leg_offset, loc=legpos[1], ncol=legcol[1])
+  if ax[2] ≠ nothing
+    pleg = vcat(ax[1][:get_legend_handles_labels]()[1], ax[2][:get_legend_handles_labels]()[1])
+    plab = vcat(ax[1][:get_legend_handles_labels]()[2], ax[2][:get_legend_handles_labels]()[2])
+    if any(plab .≠ "") && legpos ≠ "None"
+      ax[1][:legend](pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcol)
+    end
+  elseif legpos ≠ "None" && any([p.label≠"" for p in plt[1]])
+    ax[1][:legend](fontsize=fontsize+leg_offset, loc=legpos, ncol=legcol)
   end
-  if ax_2 && legpos[2] ≠ "None" && any([p.label≠"" for p in plot_list])
-    ax2[:legend](fontsize=fontsize+leg_offset, loc=legpos[2], ncol=legcol[2])
-  end
+
 
   # Set ticks and optional minor ticks
   if typeof(plot_list[1].x) ≠ Vector{DateTime}  if maj_xticks > 0
-    xint = collect(ax1[:get_xlim]()[1]:maj_xticks:ax1[:get_xlim]()[2])
-    ax1[:set_xticks](xint)
-    if ax_2  ax2[:set_xticks](xint)  end
+    xint = collect(ax[1][:get_xlim]()[1]:maj_xticks:ax[1][:get_xlim]()[2])
+    for i = 1:length(plt)  ax[i][:set_xticks](xint)  end
   end  end
   if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
     yint = collect(ax[i][:get_ylim]()[1]:maj_yticks[i]:ax[i][:get_ylim]()[2])
@@ -504,8 +523,8 @@ function plot_data(plot_list::PlotData...;
   if typeof(plot_list[1].x) ≠ Vector{DateTime}
     if min_xticks > 0
       mx = matplotlib[:ticker][:MultipleLocator](min_xticks)
-      for a in ax
-        a[:xaxis][:set_minor_locator](mx)
+      for i = 1:length(plt)
+        ax[i][:xaxis][:set_minor_locator](mx)
       end
     end
   elseif min_xticks isa Number
@@ -521,19 +540,19 @@ function plot_data(plot_list::PlotData...;
   # Format ticks and frame
   Mtlen = ticksize[1]⋅framewidth
   mtlen = ticksize[2]⋅framewidth
-  for a in ax
-    a[:tick_params]("both", which="both", direction="in", top="on", right="on",
+  for i = 1:length(plt)
+    ax[i][:tick_params]("both", which="both", direction="in", top="on", right="on",
       labelsize=fontsize, width=framewidth)
-    a[:grid](linestyle=":", linewidth = framewidth)
-    a[:spines]["bottom"][:set_linewidth](framewidth)
-    a[:spines]["top"][:set_linewidth](framewidth)
-    a[:spines]["left"][:set_linewidth](framewidth)
-    a[:spines]["right"][:set_linewidth](framewidth)
+    ax[i][:grid](linestyle=":", linewidth = framewidth)
+    ax[i][:spines]["bottom"][:set_linewidth](framewidth)
+    ax[i][:spines]["top"][:set_linewidth](framewidth)
+    ax[i][:spines]["left"][:set_linewidth](framewidth)
+    ax[i][:spines]["right"][:set_linewidth](framewidth)
     if typeof(plot_list[1].x) ≠ Vector{DateTime}
-      a[:tick_params]("both", which="major", length=Mtlen)
-      a[:tick_params]("both", which="minor", length=mtlen)
+      ax[i][:tick_params]("both", which="major", length=Mtlen)
+      ax[i][:tick_params]("both", which="minor", length=mtlen)
     else
-      a[:set_xlim](xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
+      ax[i][:set_xlim](xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
       if maj_xticks isa Vector
         majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b, %H:%M")
       else
@@ -542,10 +561,10 @@ function plot_data(plot_list::PlotData...;
       minorformatter = matplotlib[:dates][:DateFormatter]("")
       majorlocator = matplotlib[:dates][:HourLocator](byhour=maj_xticks)
       minorlocator = matplotlib[:dates][:HourLocator](byhour=min_xticks)
-      a[:xaxis][:set_major_formatter](majorformatter)
-      a[:xaxis][:set_minor_formatter](minorformatter)
-      a[:xaxis][:set_major_locator](majorlocator)
-      a[:xaxis][:set_minor_locator](minorlocator)
+      ax[i][:xaxis][:set_major_formatter](majorformatter)
+      ax[i][:xaxis][:set_minor_formatter](minorformatter)
+      ax[i][:xaxis][:set_major_locator](majorlocator)
+      ax[i][:xaxis][:set_minor_locator](minorlocator)
       fig[:autofmt_xdate](bottom=0.2,rotation=-30,ha="left")
     end
   end
@@ -553,7 +572,7 @@ function plot_data(plot_list::PlotData...;
   tight_layout()
 
   # Return PyPlot data
-  return fig, ax
+  return fig, ax[1], ax[2]
 end #function plot_data
 
 #=
@@ -995,18 +1014,17 @@ end #function calc_errors
 ### Functions associated with plot_data
 
 """
-    setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour, legpos, legcol)
+    setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
 
 If `twinax` is an array split `plot_list` into 2 datasets based on the indices
 in `twinax`. Assure all paramters concerning y data are arrays of length 2, if
 a second axis is allowed or length 1 otherwise. Return `plot_list` as array of
 2 or 1 distinct lists an the adjusted parameters.
 """
-function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks,
-                    ptype, cs, lc, lt, pt, alpha, axcolour, legpos, legcol)
+function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
+                    maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
 
   # Set flag for second axis, asume no second axis
-  ax_2 = false
   ax2 = nothing
   xlim = []; ylim = []
 
@@ -1018,7 +1036,6 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
   cl2 = String[]; dt2 = []; mt2 = []
   if !isempty(twinax)
     # Set flag true and define 2nd axis in PyPlot
-    ax_2 = true
     ax2 = twinx()
     # Check correct input of twinax
     if length(twinax) ≠ length(plot_list)
@@ -1077,8 +1094,8 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
     elseif ylims isa Array
       ylimit = [[ylims[1][1], ylims[1][2]], [ylims[2][1], ylims[2][2]]]
     end
-    if !isa(legpos, Array) legpos = [legpos, legpos]  end
-    if legcol isa Int64 legcol = [legcol, legcol]  end
+    # if !isa(legpos, Array) legpos = [legpos, legpos]  end
+    # if legcol isa Int64 legcol = [legcol, legcol]  end
   else
     # Assign all data to axis 1, if no second axis
     plt1 = plot_list
@@ -1105,13 +1122,13 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
     if ylims == nothing     ylimit = [[nothing, nothing]]
     elseif ylims isa Tuple  ylimit = [[ylims[1],ylims[2]]]
     end
-    if !isa(legpos, Array) legpos = [legpos]  end
-    if legcol isa Int64  legcol = [legcol]  end
+    # if !isa(legpos, Array) legpos = [legpos]  end
+    # if legcol isa Int64  legcol = [legcol]  end
   end
   if ylab isa String  ylab = String[ylab]  end
-  if ax_2
+  if ax2 ≠ nothing
     plt = [plt1, plt2]
-    cs = [cs, cs]
+    if !isa(cs, Vector) cs = [cs, cs]  end
     lc = [cl1, cl2]
     lt = [dt1, dt2]
     pt = [mt1, mt2]
@@ -1125,7 +1142,8 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, 
   end
 
   # Return adjusted data
-  return plt, ax2, ax_2, ylab, logscale, logremove, xlimit, ylimit, maj_yticks, min_yticks, cs, lc, lt, pt, axcolour, legpos, legcol
+  return plt, ax2, ylab, logscale, logremove, xlimit, ylimit,
+         maj_yticks, min_yticks, cs, lc, lt, pt, axcolour
 end #function setup_axes
 
 
@@ -1138,28 +1156,43 @@ element in `plt`, `lc`, `lt`, and `pt` must hold valid definitions of line colou
 line and point (marker) types at this array position. The boolean `ax_2` is needed
 to specify, whether a second axis is used.
 """
-function set_style(plt, ptype, cs, lc, lt, pt, ax_2)
+function set_style(plt, ptype, cs, lc, lt, pt)
 
-  # Loop over cs → set counter for plot data
-  # → reset counter, if second colour scheme for second axis is used
+  # Reset line and marker types to solid lines and squares, respectively,
+  # if plot_type is set to line, scatter or both (markers connected by lines)
   for i = 1:length(plt)
     if ptype == "line"
       [plt[i][j].dashes = Int64[] for j = 1:length(lt[i])]
+      [plt[i][j].marker = "None" for j = 1:length(lt[i])]
     elseif ptype == "scatter"
       [plt[i][j].dashes = "None" for j = 1:length(lt[i])]
+      [plt[i][j].marker = "s" for j = 1:length(lt[i])]
     elseif ptype == "both"
       [plt[i][j].dashes = Int64[] for j = 1:length(lt[i])]
       [plt[i][j].marker = "s" for j = 1:length(pt[i])]
     end
   end
+
+  # Set index for sel_ls function, start at 1 for separate schemes
+  # and use continuous indexing for the same scheme
+  idx = []
+  push!(idx, [i for i = 1:length(plt[1])])
+  if length(cs) == 2
+    cs[1] == cs[2] ? ind = length(idx[1]) : ind = 0
+    push!(idx, [i+ind for i = 1:length(plt[2])])
+  end
+  # Set line/marker styles and colour for a chosen colour scheme
+  # (overwrites default settings from plot_type)
   for i = 1:length(plt)  if cs[i]≠""
     for j = 1:length(plt[i])
-      cl, dt, mt = sel_ls(cs[i], lc=j, lt=j, pt=j)
+      cl, dt, mt = sel_ls(cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
       plt[i][j].colour = cl
       if ptype ≠ "scatter"  plt[i][j].dashes = dt  end
       if ptype ≠ "line"  plt[i][j].marker = mt  end
     end
   end  end
+
+  # Set manually defined styles (overwrites previous settings)
   for i = 1:length(lc), j = 1:length(lc[i])
     if lc[i][j] ≠ "default"  plt[i][j].colour = lc[i][j]  end
   end
@@ -1170,6 +1203,7 @@ function set_style(plt, ptype, cs, lc, lt, pt, ax_2)
     if pt[i][j] ≠ "default"  plt[i][j].marker = pt[i][j]  end
   end
 
+  # Return adjusted PlotData
   return plt
 end #function set_style
 
@@ -1374,6 +1408,55 @@ function rm_log(p, x::String, rel)
   return p
 end
 
+
+"""
+    checkaliases(args)
+
+Checks that aliases are used correctly without accidental multiple definitions
+for the kw`args` of function `plot_data`.
+"""
+function checkaliases(ti, title, cs, colorscheme, colourscheme,
+  ls, linestyle, linetype, pt, mt, dashes, lc, linecolor, linecolour, color, colour,
+  legpos, legloc, loc)
+
+  ti = checkalias(kwargs = [ti, title], alias = ["ti", "title"], default = "")
+  cs = checkalias(kwargs = [cs, colorscheme, colourscheme],
+    alias = ["cs", "colorscheme", "colourscheme"], default = "")
+  ls = checkalias(kwargs = [ls, linestyle, linetype],
+    alias = ["ls", "linestyle", "linetype"], default = "default")
+  pt = checkalias(kwargs = [pt, mt, dashes], alias = ["pt", "mt", "dashes"],
+    default = "default")
+  lc = checkalias(kwargs = [lc, linecolor, linecolour, color, colour],
+    alias = ["lc", "linecolor", "linecolour", "color", "colour"], default = "default")
+  legpos = checkalias(kwargs = [legpos, legloc, loc],
+    alias = ["legpos", "legloc", "loc"], default = "best")
+
+  return ti, cs, ls, pt, lc, legpos
+end
+
+"""
+    checkalias(;kwargs, alias=[""], default=[""])
+
+Checks that `kwargs` of a function are used correctly without accidental
+multiple definitions different from the `default` value. Otherwise warns about
+the multiple definitions giving naming the `alias`es with multiple definitions
+and chosing the value of the first kwarg for use in the function.
+"""
+function checkalias(;kwargs, alias=[""], default=[""])
+  setkw = findall(kwargs.≠default)
+  kw = kwargs[setkw]
+  al = alias[setkw]
+  if length(unique(kw)) > 1
+    println("\033[95mWarning! Multiple definitions of keyword aliases ",
+      join(al, ", ", " and "), "!")
+    println("$(al[1]) = $(kw[1]) used.\33[0m")
+    kwargs[1] = kw[1]
+  elseif length(unique(kw)) == 1
+    kwargs[1] = kw[1]
+  end
+
+  return kwargs[1]
+end
 
 #=
 """
