@@ -46,10 +46,9 @@ using filehandling: test_file
 
 # Export public functions
 export rd_data,
-       lineplot,
        load_PlotData,
        plot_data,
-       plot_stack,
+       # plot_stack,
        sel_ls,
        PlotData
 
@@ -136,9 +135,10 @@ file format or the selection of data.
 - `skip_footer` (`Int64`; default: `0`): Define how many lines to skip at the end
   of a file in case comments aren't used
 """
-function rd_data(ifile; dir::String=".", ix::Int64=1, iy::Union{Int64,Vector{Int64}}=0,
+function rd_data(ifile::String; dir::String=".", ix::Int64=1, iy::Union{Int64,Vector{Int64}}=0,
   headers::Bool=false, SF=1, sep::String="",
   colfill::String="last", ncols::Int64=-1, skip_header::Int64=0, skip_footer::Int64=0)
+
   # Read input file
   ifile = test_file(ifile, dir = dir) # check existence of file
   lines = String[]; colnames = String[] # initialise arrays
@@ -269,9 +269,8 @@ as well as formatting parameters into a new DataType `PlotData`.
 + `SF` (`Number`): scaling factor of y data and associated errors (**default:** `1`, no scaling)
 + `label` (`String`): Label for legend
   - `""` (empty string, **default**): no legend label
-+ `renameDF` (`Union{Bool,Array{Symbol,1}}`):
-  - `"true"` (assume columns in the order: `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`)
-  - `"false"` (columns already in correct order with names as for `true`)
++ `renameDF` (`Vector{Symbol}`):
+  - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`)
   - `Array{Symbol, 1}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
@@ -279,15 +278,15 @@ function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
          pt::Union{AbstractString,Int64}="None",
          lt::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[],
          lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
-         label::String="", alpha::Number=1, renameDF::Union{Bool,Vector{Symbol}}=true)
+         label::String="", alpha::Number=1, renameDF::Vector{Symbol}=Symbol[])
 
   # Make copy of plotdata that can be altered
   pltdata = deepcopy(plotdata)
   # (Re-)define column names of DataFrame
-  if renameDF == true
+  if isempty(renameDF)
     DFnames = Symbol[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]
     pltdata = rename_DF(pltdata, DFnames, err)
-  elseif renameDF isa Array{Symbol, 1}
+  else
     if length(renameDF) ≠ 6
       println("\\'renameDF\\' not correctly defined. Define all column names for")
       println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped."); exit()
@@ -349,6 +348,7 @@ Keyword arguments for `function plot_data` are:
   - **default:** `"concentration / mlc cm\$cd^{-3}\$ s\$^{-1}\$"`
 + `ti` (`Union{String, LaTeXString}`): Plot title
   - **default:** `""` (empty string) for no title
+  - **keyword aliases:** `title`
 + `twinax` (`Array{Int64,1}`): optional array to devide data into 2 subsets and assign second dataset to a 2. y-axis; use array of `length` of the PlotData with integers `1` and `2` to assign each data to axis 1 and 2
   (**default:**: empty array `Int64[]`, no 2. y-axis)
 + `logscale` (`Union{String, Array{String, 1}}`): use `"x"`, `"y"` or `"xy"` to
@@ -365,16 +365,22 @@ Keyword arguments for `function plot_data` are:
   or `sink` from `function sel_ls`; array with 2 different colour schemes may be
   used in case of 2. y-axis
   - `""` (**default:**): colours as defined in the `PlotData` or default PyPlot colour scheme)
-  - `"own"`: set your own colour schemes using parameters `lt` and `lc` (mandatory, if `cs` is set to `"own"`)
+  - **keyword aliases:** `colorscheme`, `colourscheme`
 + `lt`: dash type (defined by PyPlot's `dashes`)
-  - for use only, when `plot_type` is switched to `"mix"`
+  - overwrites other colour scheme settings
   - Array of `length 1 or 2` with Arrays of `length(plot_data)` where inner arrays specify line type of each `PlotData`
   - use tuple or array of integers to define on/off dash pixels
   - `[]` (empty array, **default**): solid lines
   - tuple with 2 entries or array with at least 4 entries where odd entries are `0` for no lines
+  - **keyword aliases:** `linestyle`, `linetype`, `dashes`
 + `lc`: line/marker colour (defined by PyPlot's `color` keywords, see e.g. https://matplotlib.org/examples/color/named_colors.html)
   - for use only, when `plot_type` is switched to `"mix"`
   - Array of `length 1 or 2` with Arrays of `length(plot_data)` where inner arrays specify the line/marker colour of each `PlotData`
+  - **keyword aliases:** `linecolor`, `linecolour`, `color`, `colour`
++ `pt`: marker type (defined by PyPlot's `marker`)
+  - overwrites other colour scheme settings
+  - String or integer keyword for markers from PyPlot
+  - **keyword aliases:** `mt`, `marker`
 + `alpha`: if alpha is set to a value `> 0` then all graphs will be displayed with this transparency value
 + `mticks` (`String`): Switch minor ticks on/off (**default:** "on")
 + `min_xticks` (`Union{Number,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
@@ -417,8 +423,9 @@ Keyword arguments for `function plot_data` are:
   - `"lower center"` or `8`
   - `"upper center"` or `9`
   - `"center"` or `10`
-- `legcol` (`Int64`): number of legend columns
-  (**default:** `1`)
+  - **keyword aliases:** `legloc`, `loc`
++ `legcolumns` (`Int64`): number of legend columns
+  - **default:** `1`
 """
 function plot_data(plot_list::PlotData...;
                   xlabel::Union{String, LaTeXString}="model time / hours",
@@ -437,13 +444,13 @@ function plot_data(plot_list::PlotData...;
                   framewidth::Number=1, ticksize::Tuple{Number,Number}=(4.5,2.5),
                   cap_offset::Number=0, ti_offset::Number=4, ax_offset::Number=2,
                   leg_offset::Number=0, legpos::Union{String, Int64}="best",
-                  legcol::Int64=1, axcolour::Union{String,Vector{String}}="black",
+                  legcolumns::Int64=1, axcolour::Union{String,Vector{String}}="black",
                   # Aliases:
                   title::Union{String, LaTeXString}="",
                   colorscheme::Union{String, Vector{String}}="",
                   colourscheme::Union{String, Vector{String}}="",
                   linestyle="default", linetype="default",
-                  dashes="default", mt="default",
+                  dashes="default", mt="default", marker="default",
                   linecolor::Union{String, Vector{String}}="default",
                   linecolour::Union{String, Vector{String}}="default",
                   color::Union{String, Vector{String}}="default",
@@ -452,8 +459,8 @@ function plot_data(plot_list::PlotData...;
 
   # Check kwarg aliases as set all to the same value
   ti, cs, lt, pt, lc, legpos = checkaliases(ti, title, cs, colorscheme, colourscheme,
-    lt, linestyle, linetype, pt, mt, dashes, lc, linecolor, linecolour, color, colour,
-    legpos, legloc, loc)
+    lt, linestyle, linetype, pt,  mt, marker, dashes, lc, linecolor, linecolour,
+    color, colour, legpos, legloc, loc)
 
   # Start plot
   fig, ax1 = subplots(figsize=figsize)
@@ -498,10 +505,10 @@ function plot_data(plot_list::PlotData...;
     pleg = vcat(ax[1][:get_legend_handles_labels]()[1], ax[2][:get_legend_handles_labels]()[1])
     plab = vcat(ax[1][:get_legend_handles_labels]()[2], ax[2][:get_legend_handles_labels]()[2])
     if any(plab .≠ "") && legpos ≠ "None"
-      ax[1][:legend](pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcol)
+      ax[1][:legend](pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
     end
   elseif legpos ≠ "None" && any([p.label≠"" for p in plt[1]])
-    ax[1][:legend](fontsize=fontsize+leg_offset, loc=legpos, ncol=legcol)
+    ax[1][:legend](fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
   end
 
 
@@ -641,7 +648,7 @@ keyword arguments are possible.
   - `"lower center"` or `8`
   - `"upper center"` or `9`
   - `"center"` or `10`
-- `legcol` (`Union{Int64, Array{Int64,1}}`): number of legend columns
+- `legcolumns` (`Union{Int64, Array{Int64,1}}`): number of legend columns
   (**default:** `1`)
 """
 function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
@@ -656,7 +663,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
          figsiz::Tuple{Number,Number}=(6,4), fntsiz::Number=12, framewidth::Number=1,
          ticksize::Tuple{Number,Number}=(4.5,2.5), ti_offset::Number=4,
          ax_offset::Number=2, leg_offset::Number=0,
-         legpos::Union{String, Int64}="best", legcol::Int64=1)
+         legpos::Union{String, Int64}="best", legcolumns::Int64=1)
 
   # Start plot
   fig, ax = subplots(figsize=figsiz)
@@ -727,7 +734,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
 
   if legpos ≠ "None" && any([p.label≠"" for p in plot_list])
     lbl = [p.label for p in plot_list]
-    ax[:legend](lbl, fontsize=fntsiz+leg_offset, loc=legpos, ncol=legcol)
+    ax[:legend](lbl, fontsize=fntsiz+leg_offset, loc=legpos, ncol=legcolumns)
   end
 
   # Set ticks and optional minor ticks
@@ -1095,7 +1102,7 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
       ylimit = [[ylims[1][1], ylims[1][2]], [ylims[2][1], ylims[2][2]]]
     end
     # if !isa(legpos, Array) legpos = [legpos, legpos]  end
-    # if legcol isa Int64 legcol = [legcol, legcol]  end
+    # if legcolumns isa Int64 legcolumns = [legcolumns, legcolumns]  end
   else
     # Assign all data to axis 1, if no second axis
     plt1 = plot_list
@@ -1123,7 +1130,7 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
     elseif ylims isa Tuple  ylimit = [[ylims[1],ylims[2]]]
     end
     # if !isa(legpos, Array) legpos = [legpos]  end
-    # if legcol isa Int64  legcol = [legcol]  end
+    # if legcolumns isa Int64  legcolumns = [legcolumns]  end
   end
   if ylab isa String  ylab = String[ylab]  end
   if ax2 ≠ nothing
@@ -1233,7 +1240,7 @@ function plt_DataWithErrors(plt, ax, offset)
     elseif plt[i].xuerr ≠ nothing && plt[i].yuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
-          yerr=[yerr[i][:lower], yerr[i][:upper]], ls = "None",
+          yerr=[yerr[i][:lower], yerr[i][:upper]], lt= "None",
           marker=plt[i].marker, color=plt[i].colour,
           label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       else
@@ -1245,7 +1252,7 @@ function plt_DataWithErrors(plt, ax, offset)
     elseif plt[i].yuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
-          ls = "None", marker=plt[i].marker,
+          lt= "None", marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       else
         ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
@@ -1255,7 +1262,7 @@ function plt_DataWithErrors(plt, ax, offset)
     elseif plt[i].xuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
-          ls = "None", marker=plt[i].marker,
+          lt= "None", marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       else
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
@@ -1416,22 +1423,22 @@ Checks that aliases are used correctly without accidental multiple definitions
 for the kw`args` of function `plot_data`.
 """
 function checkaliases(ti, title, cs, colorscheme, colourscheme,
-  ls, linestyle, linetype, pt, mt, dashes, lc, linecolor, linecolour, color, colour,
+  lt, linestyle, linetype, dashes, pt, mt, marker, lc, linecolor, linecolour, color, colour,
   legpos, legloc, loc)
 
   ti = checkalias(kwargs = [ti, title], alias = ["ti", "title"], default = "")
   cs = checkalias(kwargs = [cs, colorscheme, colourscheme],
     alias = ["cs", "colorscheme", "colourscheme"], default = "")
-  ls = checkalias(kwargs = [ls, linestyle, linetype],
-    alias = ["ls", "linestyle", "linetype"], default = "default")
-  pt = checkalias(kwargs = [pt, mt, dashes], alias = ["pt", "mt", "dashes"],
+  lt = checkalias(kwargs = [lt, linestyle, linetype, dashes],
+    alias = ["lt", "linestyle", "linetype", "dashes"], default = "default")
+  pt = checkalias(kwargs = [pt, mt, marker], alias = ["pt", "mt", "marker"],
     default = "default")
   lc = checkalias(kwargs = [lc, linecolor, linecolour, color, colour],
     alias = ["lc", "linecolor", "linecolour", "color", "colour"], default = "default")
   legpos = checkalias(kwargs = [legpos, legloc, loc],
     alias = ["legpos", "legloc", "loc"], default = "best")
 
-  return ti, cs, ls, pt, lc, legpos
+  return ti, cs, lt, pt, lc, legpos
 end
 
 """
