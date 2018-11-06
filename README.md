@@ -73,7 +73,7 @@ and will be resolved in version 0.2.
 
 ### load_PlotData
 
-Loads data from a `DataFrame` (`plotdata`) into the data type `PlotData` (see [PlotData](mutable-struct-plotdata)).
+Loads data from a `DataFrame` (`plotdata`) into the data type `PlotData` (see [PlotData](#mutable-struct-plotdata)).
 Each `PlotData` holds the properties of one dataset, which can be combined
 in a graph. The below properties can be defined.
 
@@ -136,7 +136,7 @@ The keyword `lw` defines the linewidth in points. You can use integers and float
 
 #### Data scaling and labelling
 
-You can scale y data with the keyword `SF` as shown for function [rd_data](rd_data).
+You can scale y data with the keyword `SF` as shown for function [rd_data](#rd_data).
 Data labels are defined by `String`s with the keyword `label`.
 
 
