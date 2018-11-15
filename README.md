@@ -252,3 +252,17 @@ You can select single values by handing over an integer, or ask for arrays
 of settings by handing over arrays or ranges. Array sizes, do not have to 
 match, you can as for four colour setting, 2 line type settings, and a default marker type setting.  
 Returns a single value or array of values in the order `lc`, `lt`, `pt`
+
+
+Version history
+===============
+
+Version 0.1.1
+-------------
+- Julia dependence corrected to ≥0.7
+
+Version 0.1.0
+-------------
+- initial version to read simple numeric text file with a certain format
+- function to load new type PlotData
+- function to use PyPlot to plot PlotData as scatter and/or line plots
