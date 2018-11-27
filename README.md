@@ -34,42 +34,6 @@ Available functions
 See also the documentation of each functions by typing `?<function name>`
 or `?pyp.<function name>` in the julia console.
 
-### rd_data
-
-`rd_data(ifile, kwargs)` loads data from a text file in a `DataFrame`.
-Text is read from `ifile`, which holds the file name as a string. Optionally,
-you can specify a relative or absolute folder path either directly in `ifile` or with the keyword argument `dir`. 
-
-Text files can have any headersand footers and numerical data arranged in
-columns. Comments can be included with `#`. Only one x data column can be
-define with the keyword `ix` and the integer of the column number 
-(by default `1`). If you do not want to load all y columns, the column
-number(s) can be specified with an interger or  array of integers.
-
-Headers can be specified by the keyword argument `skip_header`, which ignores
-the first n lines of the file; `skip_footer` ignores the last n lines.
-You can define column names in the data file by setting keyword `headers` to
-`true` and specifying a comment line with the keyword `jlheaders:` giving a
-list with all column headers. By default `x` is used for the x column and
-`y#` for y columns where `#` is to be replaced by the nth y column number.
-
-Y data can be scaled with a factor using `SF = ` as keyword. A number
-will scale all y columns with that values or you can use a array of numbers
-to specify the scaling factor of each y column separately (use `1` for
-unscaled columns).
-
-The function assumes columns to be separated by whitespace (any number to 
-separate 2 columns). Any other separator can be defined by the keyword `sep`.
-If you have columns of different length, you can specify the total number of
-columns in you file with the keyword `ncols` and the respective integer and
-the keyword `colfill` set to `"first"` or `"last"`. 
-The function will the read in the `first` or `last` `ncols` columns as data.
-The first or specified column will be interpreted as x column, the other as y columns. X columns will always be filled with actual data. For incomplete
-y columns, the `first` or `last` columns will be filled with `NaN`s.
-
-It is currently not possible to specify empty columns with the help of separators, e.g. `1,2,,4,5,,,8`. This will lead to a conversion error (#5)
-and will be resolved in version 0.2.
-
 
 ### load_PlotData
 
@@ -87,7 +51,7 @@ The keyword `err` can be used to load data with errors in a certain format.
 In `PlotData`, the error are saved in fields with the actual values of the
 bounds rather than spans.
 For data with 3 columns (x, y, and error), `err` can be set as:
-- `"rangex"` or `"rangey"`: ± error range 
+- `"rangex"` or `"rangey"`: ± error range
 - `"percentx"` or `"percenty"`: ±err ⋅ x or y
 - `"factorx"` or `"factory"`: x or y ⋅ 1/err and ⋅ err, respectively
 
@@ -105,7 +69,7 @@ Furthermore, `"valuex"`, `"valuey"`, and `"value"` can be used for `err`
 to directly set the values for the upper and lower bounds for x, y or x and y.
 
 For the data, always the first n columns are used unless you redefine the
-column names with the keyword `renameDF`. Default names are 
+column names with the keyword `renameDF`. Default names are
 `[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]`. If you redefine the names,
 you have to define __the whole vector of symbols__ rather than a single
 symbol. For values with equal errors, like `"valuey"`, redefine the lower
@@ -120,15 +84,15 @@ Errors get calucalated and are added to the `PlotData` fields `xuerr`,
 You can set the marker style using `PyPlot` keywords with the keyword argument `pt`, e.g. `"s"` for squares. `"None"` is used for no markers,
 i.e. line plots. You are allowed to enter strings or integers.
 
-The line style is set with the keyword argument `lt` using PyPlot nomenclature 
+The line style is set with the keyword argument `lt` using PyPlot nomenclature
 for `dashes`. Use Tuples of integers or floats to define the on/off point series or arrays for on/off series with different alternating values. Use
-`"None"` or tuples/arrays with odd values set to `0` for no lines 
+`"None"` or tuples/arrays with odd values set to `0` for no lines
 (i.e., scatter plots) and `[]` (empty array). Omit keyword for solid lines or use `[]` (empty array).
 
 The keyword argument `lc` sets the colour of the plot data. Use `PyPlot`
 colour names or RGB code (`#XXXXXX`) to set the colours.
 
-The keyword `lw` defines the linewidth in points. You can use integers and floats. 
+The keyword `lw` defines the linewidth in points. You can use integers and floats.
 
 `alpha` set the opaqueness, from `0` (completely transparent/invisible) to
 `1` (completely opaque).
@@ -142,7 +106,7 @@ Data labels are defined by `String`s with the keyword `label`.
 
 ### Mutable struct PlotData
 
-The `PlotData` data type holds fields to define datasets and plotting 
+The `PlotData` data type holds fields to define datasets and plotting
 parameters for easy plotting with `PyPlot`. It is mutable, so fields can
 be redefined by `PlotData.var = ...`.
 
@@ -162,16 +126,16 @@ fields exist default values.
 - `alpha::Number=1`
 
 
-## plot_data
+### plot_data
 
 Function to generate formatted `PyPlot` line and/or scatter plots from a
-list of `PlotData`. Returns `fig, ax1[, ax2]` for further formatting of 
+list of `PlotData`. Returns `fig, ax1[, ax2]` for further formatting of
 the plots.
 
 The following sections detail formatting options by keyword arguments.
 
 
-### General settings
+#### General settings
 
 - `ti` or `title`: sets the title (_default:_ `""`; no title)
 - `xlabel`: sets x label (_default:_ `"model time / hours"`)
@@ -184,7 +148,7 @@ The following sections detail formatting options by keyword arguments.
 - `xlims`/`ylims`: define tuples with minimum and maximum values the x and y axes limits (uses `PyPlot`'s limits as _default_)
 
 
-### Formatting graphs
+#### Formatting graphs
 
 General formats for graphs and labels for the data are defined by the
 `PlotData`, which is handed over as a list (`vararg`).
@@ -197,26 +161,26 @@ overwrites settings in `PlotData`:
 
 Leave blank to use settings from `PlotData`.
 
-Predefined colour schemes from function `sel_ls` can be chosen 
-(`"default"` with a range of various colours, `source` with mostly blue 
+Predefined colour schemes from function `sel_ls` can be chosen
+(`"default"` with a range of various colours, `source` with mostly blue
 shades, `sink` with mostly red shades) with the keyword `cs`, `color`,
-`colour`, `colorscheme` or `colourscheme`. Moreover, different dash and 
+`colour`, `colorscheme` or `colourscheme`. Moreover, different dash and
 marker types are provided. These settings overwrite any settings in `PlotData` and from `plot_type`.
 
 Line types can be redefined by feeding `PyPlot` commands for `dashes` to
-the keyword `lt`, `linetype`, `linestyle` or `dashes` (see also above). 
+the keyword `lt`, `linetype`, `linestyle` or `dashes` (see also above).
 To redefine `PyPlot`'s `marker`, use keyword `pt`, `mt`, or `marker`.
 Both settings overwrite the previous ones.
 Keyword `lc`, `linecolor`/`linecolour` or `color`/`colour` can be used to
 define the colour of the graph with `PyPlot`'s named colours or an RGB code.
-For all of the above settings you can either set a default value for all 
+For all of the above settings you can either set a default value for all
 data by using a single value or define each dataset in the `PlotData` list
 by specifying a vector of length of the `PlotData` list with separate settings.
 
-With `alpha` you can specify the opaqueness of the graphs. Only a default 
+With `alpha` you can specify the opaqueness of the graphs. Only a default
 value is possible and no separate settings in a vector.
 
-### Advanced settings
+#### Advanced settings
 
 - `mticks`: switches minor ticks on/off (_default:_ `"on"`)
 - `min_xticks`, `maj_xticks`, `min_yticks`, `maj_yticks`: sets the intervals of minor/major x/y ticks (uses `PyPlot`'s values as _default_)
@@ -229,27 +193,27 @@ value is possible and no separate settings in a vector.
 You can define a secondary y axis, which is shown to the right.
 Use the keyword argument `twinax` and define a vector of integers with `1`
 and `2` of length of the `PlotData` list. `1`'s assign data in the `PlotData` list to the left axis, `2`'s to the right.
-For the y-axis related properties `ylabel`, `logscale`, 
+For the y-axis related properties `ylabel`, `logscale`,
 `cs` (`colourscheme`), `ylimes`, `min_yticks`, and `maj_yticks`
 you can either specify a global value for both axes or you can define an
 array `[setting1, setting2]` with different values for the left and right
 axis, respectively. For other settings like `lt` or `pt` you can still
-define the array as for a single y axis and the settings get automatically 
+define the array as for a single y axis and the settings get automatically
 distributed to the correct axis.
 Furthermore, you can specify the colour of the y axis labels with the
 keyword `axcolour` as global value or array to better distinguish two
 different datasets on two y axes.
 
-## sel_ls
+### sel_ls
 
 Function `sel_ls(cs; kwargs)` allows you to choose colours, line and marker
 styles from predefined schemes. Currently `"default"`, `"source"`, and
-`"sink"` are available with varying colours, mostly blue and red shades, 
+`"sink"` are available with varying colours, mostly blue and red shades,
 respectively.
-Furthermore, different dash and marker types are available. Choose line 
+Furthermore, different dash and marker types are available. Choose line
 colours with keyword `lc`, dash types with `lt`, and marker types with `pt`.
-You can select single values by handing over an integer, or ask for arrays 
-of settings by handing over arrays or ranges. Array sizes, do not have to 
+You can select single values by handing over an integer, or ask for arrays
+of settings by handing over arrays or ranges. Array sizes, do not have to
 match, you can as for four colour setting, 2 line type settings, and a default marker type setting.  
 Returns a single value or array of values in the order `lc`, `lt`, `pt`
 
