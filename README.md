@@ -221,6 +221,11 @@ Returns a single value or array of values in the order `lc`, `lt`, `pt`
 Version history
 ===============
 
+Version 0.2.0
+-------------
+- Move improved function `rd_data` (now `read_data`) to package `filehandling`
+  (https://github.com/pb866/filehandling.git)
+
 Version 0.1.1
 -------------
 - Julia dependence corrected to ≥0.7
