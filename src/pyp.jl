@@ -78,77 +78,94 @@ end
     rd_data(ifile; \\*\\*kwargs)
 
 
-Read data from text file `ifile` in the following format:
+Read data from text file `ifile`.
 
-    # Use '#' as first character for comments or data to be ignored.
-    # Optional: specify column header names for DataFrame keywords
-    # with keyword `jlheaders` as:
-    # jlheaders: x1, y1, y2, ..., yn
-    # (You may use whitespace, commas (,), semicolons (;), or pipes (|) as
-    #  separators in the list above)
-    <data separated by whitespace or any character/string>
-
-If columns don't have the same length, it can be specified whether the first or last
-columns will be filled with `NaN`s.
+If columns don't have the same length, they can be filled with default values either
+starting with the first or last columns.
 
 The function uses several keyword arguments (\\*\\*kwargs) for more freedom in the
 file format or the selection of data.
 
 ### \\*\\*kwargs
 
-- `dir` (`String`; default: `.`): Directory of the input file `ifile`
-- `x` (`Int64`; default: `1`): Column index for column in `ifile` holding the x data
-  (default column name in output DataFrame: `x`). If `x` is set to `0`, no x column
-  is assigned and only y columns are used in the DataFrame.
-- `headers` (`Bool`; default: `false`): If headers is set to `true`, you need to specify
-  column header names for all columns for the output DataFrame as described above
-  using the keyword `jlheaders`. All columns will be read in and saved the same
-  order as in `ifile`.
-- `SF` (default value: `1` (no scaling)): You can optionally apply scaling factors
-  to y data. If `SF` is an integer, the scaling factor will be applied to all
-  y columns. You can apply scaling to each y column individually by providing an
-  array of scaling factors of `length number of columns - number of x column`. If
-  you only want to scale certain column(s), set the scaling factors for these columns
-  and use `1` otherwise. Use empty strings (`""`) for non-data number columns
-  (excluding `NaN` and `missing` columns).
-- `sep` (default: `whitespace`): You can specify any column separator with the
+- `dir` (`String = "."`): Directory of the input file `ifile`
+  (can also be specified directly in `ifile`)
+- `x` (`Union{Int64,Vector{Int64}} = 1`): Column index for column in `ifile`
+  holding the x data (default column name in output DataFrame: `x` or `xi`, i = 1...n).
+  If `x` is set to `0`, no x column is assigned and only y columns are used in the DataFrame
+  (with default values `y` or `yi`, i = 1...n)).
+- `SF` (default value: `1` (no scaling)): Optional scaling factor for all data.
+- `SFx` (default value: `1` (no scaling)): Optional scaling factor for x data.
+- `SFy` (default value: `1` (no scaling)): Optional scaling factor for y data.
+- `sep` (`String`, default: `whitespace`): You can specify any column separator with the
   keyword charactar `sep`. Separators can be any unicode character (even special
   characters such as `≠` or `α`) or string series of unicode characters
-  (including whitespace).
-- `colfill` (`Int64`; default: `"last"`): If the column length of the input file varies,
-  the `first` or `last` columns of the file are filled with `NaN`s according to
-  the keyword. If you have a file with shorter columns to the right and the left,
+  (including whitespace). The default splits using any number of whitespace, if you
+  want to include empty columns, you need to specify the whitespace explicitly with
+  `sep`.
+- `colfill` (`String = "last"`): If the column length of the input file varies,
+  the `"first"` or `"last"` columns of the file are filled with `err` (default values)
+  according to the keyword. If you have a file with shorter columns to the right and the left,
   you either need to rearrange columns in the original data file or try to work
   with a specifically defined separator `sep`.
-- `ncols` (`String`; default: `-1`): Defines the number of columns (x + y columns) in a file.
-  If set to a negative number, the number of columns is derived from the `jlheaders`
-  array or, if obsolete, from the first non-comment line of the file. You should
-  only have to set the number of columns, if you have columns of different length
-  with leading missing numbers and use whitespace as separator or if you want to exclude
-  a large number of columns in your DataFrame.
-- `skip_header` (`Int64`; default: `0`): Define how many lines to skip at the beginning
-  of a file in case comments aren't used
-- `skip_footer` (`Int64`; default: `0`): Define how many lines to skip at the end
-  of a file in case comments aren't used
+- `ncols` (`String = 0`): Defines the number of columns (x + y columns) in a file.
+  If set to a `0`, the number of columns is derived from `colnames` or, if obsolete,
+  from the first non-comment line of the file. You should only have to set the number
+  of columns, if you have columns of different length with leading missing numbers and
+  use whitespace as separator or if you want to exclude a large number of columns in
+  your DataFrame.
+- `header` (`Int64 = 0`): Optional line holding header names. Default values are
+  used, if set to `0`, positive values indicate the line number starting at the first
+  data line (non-comment line or line after `headerskip`), negative values indicate
+  line number going upwards from the first data line (e.g. `-1` is line above first data line).
+  Routine may fail, if comment lines are used after skipped header lines.
+- `headerskip` (`Union{Int64,String,Regex} = 0`): Define how many lines to ignore
+  at the beginning of a file. If a string or regex expression is used, all lines
+  up to the last instance are ignored.
+- `footerskip` (`Union{Int64,String,Regex} = 0`): Define how many lines to ignore
+  at the end of a file. If a string or regex expression is used, all lines
+  starting from the first instance are ignored.
+- `comment` (`String = "#"`): String that defines in-line and line comments
+- `err` (Union{Float64,String,Missing,Vector{Any}}): Specify default values for
+  missing data or data that cannot be converted to a data type (can include a `Number`,
+  `NaN`, `missing`). By default, `Int` and `Float` columns use `NaN` and are always
+  return as `Float64`, `DateTime` uses `DateTime(0)`. If no value could be converted
+  in a column a `String` vector is return, to allow text columns by default.
+- `coltypes` (`Union{DataType,Vector{DataType}}`): If specified, `rd_data` tries to
+  convert each column into the specified type, on failure the default or specified
+  `err` values are used. Either use `Vector{DataType}` for each column or `DataType`
+  for a global value. (If errors are encountered in the data, 64 bit data types will
+  automatically assigned.)
+- `colnames` (`Vector{String} = String[]`): Specify header names for the output
+  dataframe directly as kwarg. Overwrites values, derived from the input file.
 """
 function rd_data(ifile::String; dir::String=".", x::Union{Int64,Vector{Int64}}=1,
   SF=1, SFx=1, SFy=1, sep::String="", colfill::String="last", ncols::Int64=0,
-  header::Int64 = 0, headerskip::Union{Int64,String}=0, footerskip::Union{Int64,String}=0,
-  err::Union{Float64, String, Missing}="", coltypes::Vector{DataType}=DataType[],
-  colnames::Vector{String}=String[], comment::String="#")
+  header::Int64 = 0, headerskip::Union{Int64,String,Regex}=0,
+  footerskip::Union{Int64,String,Regex}=0, comment::String="#",
+  err::Union{Float64,String,Missing,Vector{Any}}="",
+  coltypes::Union{DataType,Vector{DataType}}=DataType[], colnames::Vector{String}=String[])
+
+  # initialise
+  ifile = test_file(ifile, dir = dir) # check existence of file
+  lines = String[]; y = Int64[]
+  if x == 0  x = Int64[]  end
 
   # Read input file
-  ifile = test_file(ifile, dir = dir) # check existence of file
-  lines = String[]; y = Int64[] # initialise
   open(ifile,"r") do f
     # Read file
     lines = readlines(f)
+    # Search for keyword for start/end of data
+    if !isa(headerskip, Number) headerskip = findlast(occursin.(headerskip, lines))  end
+    if !isa(footerskip, Number)
+      footerskip = 1 + findfirst(occursin.(footerskip, lines)) - length(lines)
+    end
     # delete leading and trailing whitespace
     lines = [replace(str, r"^[ \t]*" => "") for str in lines]
     lines = [replace(str, r"[ \t]*$" => "") for str in lines]
     # Find first non-ignored data line
     data1 = findfirst(broadcast(!, startswith.(lines, comment)) .& (lines .≠ ""))
-    if data1 < headerskip  data1 = headerskip  end
+    if data1 < headerskip  data1 = 1+headerskip  end
 
     # Define number of columns
     if ncols == 0
@@ -165,10 +182,11 @@ function rd_data(ifile::String; dir::String=".", x::Union{Int64,Vector{Int64}}=1
       if header > 0  header -= 1  end
       ihead = data1 + header
       # retrieve header names
-      colnames = replace(lines[ihead], Regex("$comment.*") => "")
+      colnames = replace(lines[ihead], Regex("^$comment") => "")
+      colnames = strip(replace(colnames, Regex("$comment.*") => ""))
       colnames = strip(replace(colnames,r",|;|\|" => " "))
       colnames = strip.(split(colnames))
-      if header ≥ 0 && ihead < length(lines)-footerskip  deleteat!(lines, ihead)  end
+      if header ≥ 0 && ihead ≤ length(lines)-footerskip  deleteat!(lines, ihead)  end
     elseif isempty(colnames)
       colnames = Vector{String}(undef, ncols)
       if x isa Number
@@ -200,10 +218,10 @@ function rd_data(ifile::String; dir::String=".", x::Union{Int64,Vector{Int64}}=1
       lcolnames = colnames[1:ncols]
     end
 
-    # Skip first lines of a file, if skip_header is set to integer > 0
-    deleteat!(lines,1:headerskip)
     # Skip last lines of a file, if skip_footer is set to integer > 0
     deleteat!(lines,1+length(lines)-footerskip:length(lines))
+    # Skip first lines of a file, if skip_header is set to integer > 0
+    deleteat!(lines,1:headerskip)
     # Find and delete comments
     lines = [replace(str, Regex("$comment.*") => "") for str in lines]
     # Find and delete empty lines
@@ -236,40 +254,84 @@ function rd_data(ifile::String; dir::String=".", x::Union{Int64,Vector{Int64}}=1
 
   # Generate output DataFrame
   output = DataFrame()
+  if !isa(err, Vector)  e = []; [push!(e, err) for i = 1:ncols]; err = e  end
+  if !isa(coltypes, Vector)
+    ct = deepcopy(coltypes)
+    coltypes = DataType[]
+    for i = 1:ncols  push!(coltypes, ct) end
+  end
   for i = 1:ncols
     col = filedata[:,i]
-    try col = parse.(Int, col)
+    if !isempty(coltypes)
+      try col = parse.(coltypes[i], col)
+      catch
+        col = convert_exceptions(col, err[i])
+      end
       output[Symbol(colnames[i])] = col
-      continue
-    catch
-    end
-    try col = parse.(Float64, col)
-      output[Symbol(colnames[i])] = col
-      continue
-    catch
-    end
-    try col = parse.(DateTime, col)
-      output[Symbol(colnames[i])] = col
-      continue
-    catch
-      col = convert_exceptions(col, err)
-      output[Symbol(colnames[i])] = col
+    else
+      try col = parse.(Int, col)
+        output[Symbol(colnames[i])] = col
+        continue
+      catch
+      end
+      try col = parse.(Float64, col)
+        output[Symbol(colnames[i])] = col
+        continue
+      catch
+      end
+      try col = parse.(DateTime, col)
+        output[Symbol(colnames[i])] = col
+        continue
+      catch
+        col = convert_exceptions(col, err[i])
+        output[Symbol(colnames[i])] = col
+      end
     end
   end
-  # SF=1, SFx=1, SFy=1, coltypes
+  # Scale data
+  if SF isa Number
+    s = []; [push!(s,SF) for i = 1:ncols]; SF = s
+  end
+  SFax = Vector{Any}(undef, ncols)
+  for i in x
+    SFx isa Vector ? SFax[i] = SFx[i] : SFax[i] = SFx
+  end
+  for i in y
+    SFy isa Vector ? SFax[i] = SFy[i] : SFax[i] = SFy
+  end
+  for i = 1:ncols
+    if SF[i] ≠ 1 && typeof(output[i]) ≠ Vector{DateTime}
+      output[i] .*= SF[i]
+    end
+    if SFax[i] ≠ 1 && typeof(output[i]) ≠ Vector{DateTime}
+      output[i] .*= SFax[i]
+    end
+  end
+  # read_between Union{String, Regex}, err vector
 
   # Return file data as DataFrame
   return output
 end #function rd_data
 
 
+"""
+    convert_exceptions(col, err)
+
+From vector `col` with current column data and default value `err` for data
+that cannot be converted into a `DataType` `Int64`, `Float64`, or `DateTime`,
+return the revised vector `col` with conversion failures replaced by `err`.
+"""
 function convert_exceptions(col, err)
-  for type in [Float64, DateTime]
+  # Loop over data types
+  for type in [Int, Float64, DateTime]
     revcol = Vector{Any}(undef, length(col)); count = 0
+    # Loop over data
     for (i, dat) in enumerate(col)
+      # Convert data or use default error data
       try elem = parse(type, dat)
         revcol[i] = elem
       catch
+        # Use different default values for different data types, if err is not defined
         if err == "" && type == Float64
           revcol[i] = NaN
         elseif err == "" && type == DateTime
@@ -280,6 +342,8 @@ function convert_exceptions(col, err)
         count += 1
       end
     end
+    # Check whether conversion was successful
+    # or the next data type has to be tested
     if count < length(col)  try col = convert(Vector{type}, revcol)
       break
     catch
