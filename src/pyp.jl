@@ -97,15 +97,9 @@ file format or the selection of data.
 ### \\*\\*kwargs
 
 - `dir` (`String`; default: `.`): Directory of the input file `ifile`
-- `ix` (`Int64`; default: `1`): Column index for column in `ifile` holding the x data
-  (default column name in output DataFrame: `x`). If `ix` is set to `0`, no x column
+- `x` (`Int64`; default: `1`): Column index for column in `ifile` holding the x data
+  (default column name in output DataFrame: `x`). If `x` is set to `0`, no x column
   is assigned and only y columns are used in the DataFrame.
-- `iy` (default: `0`): Column index/indices of y data columns in `ifile`. If `iy`
-  is set to `0`, all columns starting at column 2 are assigned as y columns
-  (default column name(s) in output DataFrame: `y1` ... `yn`).
-  Columns can be specified using an integer for the selection of a single column,
-  ranges (`<n(low)>:<n(high)>`), or arrays with special selections (`[n1, n2, ..., nn]`)
-  where column order can be rearranged.
 - `headers` (`Bool`; default: `false`): If headers is set to `true`, you need to specify
   column header names for all columns for the output DataFrame as described above
   using the keyword `jlheaders`. All columns will be read in and saved the same
@@ -115,7 +109,8 @@ file format or the selection of data.
   y columns. You can apply scaling to each y column individually by providing an
   array of scaling factors of `length number of columns - number of x column`. If
   you only want to scale certain column(s), set the scaling factors for these columns
-  and use `1` otherwise.
+  and use `1` otherwise. Use empty strings (`""`) for non-data number columns
+  (excluding `NaN` and `missing` columns).
 - `sep` (default: `whitespace`): You can specify any column separator with the
   keyword charactar `sep`. Separators can be any unicode character (even special
   characters such as `≠` or `α`) or string series of unicode characters
@@ -129,114 +124,171 @@ file format or the selection of data.
   If set to a negative number, the number of columns is derived from the `jlheaders`
   array or, if obsolete, from the first non-comment line of the file. You should
   only have to set the number of columns, if you have columns of different length
-  with leading missing numbers.
+  with leading missing numbers and use whitespace as separator or if you want to exclude
+  a large number of columns in your DataFrame.
 - `skip_header` (`Int64`; default: `0`): Define how many lines to skip at the beginning
   of a file in case comments aren't used
 - `skip_footer` (`Int64`; default: `0`): Define how many lines to skip at the end
   of a file in case comments aren't used
 """
-function rd_data(ifile::String; dir::String=".", ix::Int64=1, iy::Union{Int64,Vector{Int64}}=0,
-  headers::Bool=false, SF=1, sep::String="",
-  colfill::String="last", ncols::Int64=-1, skip_header::Int64=0, skip_footer::Int64=0)
+function rd_data(ifile::String; dir::String=".", x::Union{Int64,Vector{Int64}}=1,
+  SF=1, SFx=1, SFy=1, sep::String="", colfill::String="last", ncols::Int64=0,
+  header::Int64 = 0, headerskip::Union{Int64,String}=0, footerskip::Union{Int64,String}=0,
+  err::Union{Float64, String, Missing}="", coltypes::Vector{DataType}=DataType[],
+  colnames::Vector{String}=String[], comment::String="#")
 
   # Read input file
   ifile = test_file(ifile, dir = dir) # check existence of file
-  lines = String[]; colnames = String[] # initialise arrays
+  lines = String[]; y = Int64[] # initialise
   open(ifile,"r") do f
     # Read file
     lines = readlines(f)
+    # delete leading and trailing whitespace
+    lines = [replace(str, r"^[ \t]*" => "") for str in lines]
+    lines = [replace(str, r"[ \t]*$" => "") for str in lines]
+    # Find first non-ignored data line
+    data1 = findfirst(broadcast(!, startswith.(lines, comment)) .& (lines .≠ ""))
+    if data1 < headerskip  data1 = headerskip  end
+
+    # Define number of columns
+    if ncols == 0
+      lines[data1] = strip(replace(lines[data1], Regex("$comment.*") => ""))
+      sep == "" ? ncols = length(split(lines[data1])) :
+        ncols = length(split(lines[data1], sep))
+    end
+    # Determine y columns
+    y = setdiff(collect(1:ncols), x)
+
     # Extract column header names, if specified
-    if headers == true
-      icol = findfirst([occursin("jlheaders:", line) for line in lines])
-      colnames = split(lines[icol],"jlheaders:")[2]
-      colnames = replace(colnames,r",|;|\|" => " ")
-      colnames = split(colnames)
-      # Make sure, columns aren't rearranged
-      if ix > 1  ix = 1  end
-      iy = 0
+    if header ≠ 0 && isempty(colnames)
+      # Find line with header names
+      if header > 0  header -= 1  end
+      ihead = data1 + header
+      # retrieve header names
+      colnames = replace(lines[ihead], Regex("$comment.*") => "")
+      colnames = strip(replace(colnames,r",|;|\|" => " "))
+      colnames = strip.(split(colnames))
+      if header ≥ 0 && ihead < length(lines)-footerskip  deleteat!(lines, ihead)  end
+    elseif isempty(colnames)
+      colnames = Vector{String}(undef, ncols)
+      if x isa Number
+        colnames[x] = "x"
+      else
+        for (i, xi) in enumerate(x)
+          colnames[xi] = "x$i"
+        end
+      end
+      if length(y) == 1
+        colnames[y[1]] = "y"
+      else
+        for (i, yi) in enumerate(y)
+          colnames[yi] = "y$i"
+        end
+      end
     end
+
+    # Check that length of colnames fits ncols
+    if length(colnames) < ncols
+      println("WARNING! Number of column names does not fit ncol;")
+      println("colnames is appended with standard names.")
+      for i = length(colnames)+1:ncols
+        any(x.==i) ? push!(colnames, "x$i") : push!(colnames, "y$i")
+      end
+    elseif length(colnames) > ncols
+      println("WARNING! Number of column names does not fit ncol.")
+      println("The last $(length(colnames)-ncols) column names are ignored.")
+      lcolnames = colnames[1:ncols]
+    end
+
     # Skip first lines of a file, if skip_header is set to integer > 0
-    deleteat!(lines,1:skip_header)
+    deleteat!(lines,1:headerskip)
     # Skip last lines of a file, if skip_footer is set to integer > 0
-    deleteat!(lines,1+length(lines)-skip_footer:length(lines))
-    # Find and delete comment lines
-    del=findall(startswith.(lines,"#"))
-    deleteat!(lines,del)
+    deleteat!(lines,1+length(lines)-footerskip:length(lines))
+    # Find and delete comments
+    lines = [replace(str, Regex("$comment.*") => "") for str in lines]
     # Find and delete empty lines
-    del=findall(lines.=="")
-    deleteat!(lines,del)
+    deleteat!(lines,findall(lines.==""))
   end
 
-  # Set number of columns
-  if ncols < 0 && length(colnames) > 0
-    ncols = length(colnames)
-  elseif ncols < 0
-    ncols = length(split(lines[1]))
-  end
-  # Determine number of y columns for default case
-  if iy == 0  && ix == 0
-    iy = 1:ncols
-  elseif iy == 0  && ix > 0
-    iy = 2:ncols
-  end
-
-  # Initilise x and y data
-  if ix > 0  x = Float64[]  end
-  y = Matrix{Float64}(undef, 0, length(iy))
+  # Initilise matrix for file data
+  filedata = Matrix{String}(undef, length(lines), ncols)
   # Loop over data lines
-  for line in lines
+  for (i, line) in enumerate(lines)
     # Split into columns
-    if sep == ""
-      # Assume whitespace as default separator
-      raw = split(line)
-    else
-      # Use separator, if specified
-      raw = split(line,sep)
-    end
+    sep == "" ? raw = strip.(split(line)) : raw = strip.(split(line,sep))
     # Check number of current columns against maximum number of columns
     if length(raw) > ncols
-      println("WARNING! Number of columns read in greater than defined number of columns.")
-      println("The $colfill $(length(raw)-ncols) columns are ignored.")
-      if lowercase(colfill[1]) == "l"
-        raw = raw[1:ncols]
-      else
-        raw = raw[length(raw)-ncols+1:end]
-      end
+      # println("WARNING! Number of columns read in greater than number of columns defined.")
+      # println("The $colfill $(length(raw)-ncols) columns are ignored.")
+      lowercase(colfill[1]) == "l" ? raw = raw[1:ncols] : raw = raw[length(raw)-ncols+1:end]
+    elseif length(raw) < ncols && colfill == "first"
+      [pushfirst!(raw, "") for i = 1+length(raw):ncols]
+    elseif length(raw) < ncols && colfill == "last"
+      [push!(raw, "") for i = 1+length(raw):ncols]
     end
-    # Save current line to respective data arrays
-    if ix > 0  push!(x,parse(Float64, raw[ix]))  end
-    ydat = transpose(parse.(Float64, raw[1:end .!= ix]).*SF)
-    ix == 0 ? nx = 0 : nx = 1
-    if length(ydat)<ncols && colfill == "last"
-      for i=length(ydat)+1:ncols-nx  ydat = hcat(ydat,NaN)  end
-    elseif length(ydat)<ncols && colfill == "first"
-      for i=length(ydat)+1:ncols-nx  ydat = hcat(NaN,ydat)  end
-    end
-    y = vcat(y,ydat)
+    # Save line in matrix
+    filedata[i,:] = raw
+
+    # Convert data types, try specified column types first, otherwise:
+    # Int -> Float -> Replace empty cells with NaN, try Float -> use String
   end
 
+
   # Generate output DataFrame
-  if ix == 0  output = DataFrame()
-  else        output = DataFrame(x = x)
-  end
-  for i = 1:length(iy)
-    output[Symbol("y$i")] = y[:,i]
-  end
-  # Rename headers, if names were specified
-  if headers == true
-    if length(output) != length(colnames)
-      println("Warning! Length of column names not equal to number of columns.")
-      println("Using standard names x for first column and y1...yn for remaining columns.")
-    else
-      for i = 1:length(colnames)
-        rename!(output,names(output)[i],Symbol(colnames[i]))
-      end
+  output = DataFrame()
+  for i = 1:ncols
+    col = filedata[:,i]
+    try col = parse.(Int, col)
+      output[Symbol(colnames[i])] = col
+      continue
+    catch
+    end
+    try col = parse.(Float64, col)
+      output[Symbol(colnames[i])] = col
+      continue
+    catch
+    end
+    try col = parse.(DateTime, col)
+      output[Symbol(colnames[i])] = col
+      continue
+    catch
+      col = convert_exceptions(col, err)
+      output[Symbol(colnames[i])] = col
     end
   end
+  # SF=1, SFx=1, SFy=1, coltypes
 
   # Return file data as DataFrame
   return output
 end #function rd_data
+
+
+function convert_exceptions(col, err)
+  for type in [Float64, DateTime]
+    revcol = Vector{Any}(undef, length(col)); count = 0
+    for (i, dat) in enumerate(col)
+      try elem = parse(type, dat)
+        revcol[i] = elem
+      catch
+        if err == "" && type == Float64
+          revcol[i] = NaN
+        elseif err == "" && type == DateTime
+          revcol[i] = DateTime(0)
+        else
+          revcol[i] = err
+        end
+        count += 1
+      end
+    end
+    if count < length(col)  try col = convert(Vector{type}, revcol)
+      break
+    catch
+      continue
+    end
+  end  end
+
+  return col
+end
 
 
 """
