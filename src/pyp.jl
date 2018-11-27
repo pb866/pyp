@@ -12,7 +12,6 @@ Load data and plot with PyPlot.
 # Functions
 
 ## Public
-- rd_data
 - load_plotdata
 - plot_data
 - plot_stack
@@ -45,8 +44,7 @@ using filehandling: test_file
 
 
 # Export public functions
-export rd_data,
-       load_PlotData,
+export load_PlotData,
        plot_data,
        # plot_stack,
        sel_ls,
@@ -73,170 +71,6 @@ end
 ##########################
 ###  PUBLIC FUNCTIONS  ###
 ##########################
-
-"""
-    rd_data(ifile; \\*\\*kwargs)
-
-
-Read data from text file `ifile` in the following format:
-
-    # Use '#' as first character for comments or data to be ignored.
-    # Optional: specify column header names for DataFrame keywords
-    # with keyword `jlheaders` as:
-    # jlheaders: x1, y1, y2, ..., yn
-    # (You may use whitespace, commas (,), semicolons (;), or pipes (|) as
-    #  separators in the list above)
-    <data separated by whitespace or any character/string>
-
-If columns don't have the same length, it can be specified whether the first or last
-columns will be filled with `NaN`s.
-
-The function uses several keyword arguments (\\*\\*kwargs) for more freedom in the
-file format or the selection of data.
-
-### \\*\\*kwargs
-
-- `dir` (`String`; default: `.`): Directory of the input file `ifile`
-- `ix` (`Int64`; default: `1`): Column index for column in `ifile` holding the x data
-  (default column name in output DataFrame: `x`). If `ix` is set to `0`, no x column
-  is assigned and only y columns are used in the DataFrame.
-- `iy` (default: `0`): Column index/indices of y data columns in `ifile`. If `iy`
-  is set to `0`, all columns starting at column 2 are assigned as y columns
-  (default column name(s) in output DataFrame: `y1` ... `yn`).
-  Columns can be specified using an integer for the selection of a single column,
-  ranges (`<n(low)>:<n(high)>`), or arrays with special selections (`[n1, n2, ..., nn]`)
-  where column order can be rearranged.
-- `headers` (`Bool`; default: `false`): If headers is set to `true`, you need to specify
-  column header names for all columns for the output DataFrame as described above
-  using the keyword `jlheaders`. All columns will be read in and saved the same
-  order as in `ifile`.
-- `SF` (default value: `1` (no scaling)): You can optionally apply scaling factors
-  to y data. If `SF` is an integer, the scaling factor will be applied to all
-  y columns. You can apply scaling to each y column individually by providing an
-  array of scaling factors of `length number of columns - number of x column`. If
-  you only want to scale certain column(s), set the scaling factors for these columns
-  and use `1` otherwise.
-- `sep` (default: `whitespace`): You can specify any column separator with the
-  keyword charactar `sep`. Separators can be any unicode character (even special
-  characters such as `≠` or `α`) or string series of unicode characters
-  (including whitespace).
-- `colfill` (`Int64`; default: `"last"`): If the column length of the input file varies,
-  the `first` or `last` columns of the file are filled with `NaN`s according to
-  the keyword. If you have a file with shorter columns to the right and the left,
-  you either need to rearrange columns in the original data file or try to work
-  with a specifically defined separator `sep`.
-- `ncols` (`String`; default: `-1`): Defines the number of columns (x + y columns) in a file.
-  If set to a negative number, the number of columns is derived from the `jlheaders`
-  array or, if obsolete, from the first non-comment line of the file. You should
-  only have to set the number of columns, if you have columns of different length
-  with leading missing numbers.
-- `skip_header` (`Int64`; default: `0`): Define how many lines to skip at the beginning
-  of a file in case comments aren't used
-- `skip_footer` (`Int64`; default: `0`): Define how many lines to skip at the end
-  of a file in case comments aren't used
-"""
-function rd_data(ifile::String; dir::String=".", ix::Int64=1, iy::Union{Int64,Vector{Int64}}=0,
-  headers::Bool=false, SF=1, sep::String="",
-  colfill::String="last", ncols::Int64=-1, skip_header::Int64=0, skip_footer::Int64=0)
-
-  # Read input file
-  ifile = test_file(ifile, dir = dir) # check existence of file
-  lines = String[]; colnames = String[] # initialise arrays
-  open(ifile,"r") do f
-    # Read file
-    lines = readlines(f)
-    # Extract column header names, if specified
-    if headers == true
-      icol = findfirst([occursin("jlheaders:", line) for line in lines])
-      colnames = split(lines[icol],"jlheaders:")[2]
-      colnames = replace(colnames,r",|;|\|" => " ")
-      colnames = split(colnames)
-      # Make sure, columns aren't rearranged
-      if ix > 1  ix = 1  end
-      iy = 0
-    end
-    # Skip first lines of a file, if skip_header is set to integer > 0
-    deleteat!(lines,1:skip_header)
-    # Skip last lines of a file, if skip_footer is set to integer > 0
-    deleteat!(lines,1+length(lines)-skip_footer:length(lines))
-    # Find and delete comment lines
-    del=findall(startswith.(lines,"#"))
-    deleteat!(lines,del)
-    # Find and delete empty lines
-    del=findall(lines.=="")
-    deleteat!(lines,del)
-  end
-
-  # Set number of columns
-  if ncols < 0 && length(colnames) > 0
-    ncols = length(colnames)
-  elseif ncols < 0
-    ncols = length(split(lines[1]))
-  end
-  # Determine number of y columns for default case
-  if iy == 0  && ix == 0
-    iy = 1:ncols
-  elseif iy == 0  && ix > 0
-    iy = 2:ncols
-  end
-
-  # Initilise x and y data
-  if ix > 0  x = Float64[]  end
-  y = Matrix{Float64}(undef, 0, length(iy))
-  # Loop over data lines
-  for line in lines
-    # Split into columns
-    if sep == ""
-      # Assume whitespace as default separator
-      raw = split(line)
-    else
-      # Use separator, if specified
-      raw = split(line,sep)
-    end
-    # Check number of current columns against maximum number of columns
-    if length(raw) > ncols
-      println("WARNING! Number of columns read in greater than defined number of columns.")
-      println("The $colfill $(length(raw)-ncols) columns are ignored.")
-      if lowercase(colfill[1]) == "l"
-        raw = raw[1:ncols]
-      else
-        raw = raw[length(raw)-ncols+1:end]
-      end
-    end
-    # Save current line to respective data arrays
-    if ix > 0  push!(x,parse(Float64, raw[ix]))  end
-    ydat = transpose(parse.(Float64, raw[1:end .!= ix]).*SF)
-    ix == 0 ? nx = 0 : nx = 1
-    if length(ydat)<ncols && colfill == "last"
-      for i=length(ydat)+1:ncols-nx  ydat = hcat(ydat,NaN)  end
-    elseif length(ydat)<ncols && colfill == "first"
-      for i=length(ydat)+1:ncols-nx  ydat = hcat(NaN,ydat)  end
-    end
-    y = vcat(y,ydat)
-  end
-
-  # Generate output DataFrame
-  if ix == 0  output = DataFrame()
-  else        output = DataFrame(x = x)
-  end
-  for i = 1:length(iy)
-    output[Symbol("y$i")] = y[:,i]
-  end
-  # Rename headers, if names were specified
-  if headers == true
-    if length(output) != length(colnames)
-      println("Warning! Length of column names not equal to number of columns.")
-      println("Using standard names x for first column and y1...yn for remaining columns.")
-    else
-      for i = 1:length(colnames)
-        rename!(output,names(output)[i],Symbol(colnames[i]))
-      end
-    end
-  end
-
-  # Return file data as DataFrame
-  return output
-end #function rd_data
 
 
 """
