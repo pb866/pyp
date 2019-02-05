@@ -39,9 +39,6 @@ using Parameters
 using LinearAlgebra
 using Dates
 
-# Load further modules
-using filehandling: test_file
-
 
 # Export public functions
 export load_PlotData,
