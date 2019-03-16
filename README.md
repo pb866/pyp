@@ -69,13 +69,13 @@ Furthermore, `"valuex"`, `"valuey"`, and `"value"` can be used for `err`
 to directly set the values for the upper and lower bounds for x, y or x and y.
 
 For the data, always the first n columns are used unless you redefine the
-column names with the keyword `renameDF`. Default names are
+column names with the keyword `select_cols`. Default names are
 `[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]`. If you redefine the names,
 you have to define __the whole vector of symbols__ rather than a single
 symbol. For values with equal errors, like `"valuey"`, redefine the lower
 bound symbol.
 
-Errors get calucalated and are added to the `PlotData` fields `xuerr`,
+Errors get calculated and are added to the `PlotData` fields `xuerr`,
 `xlerr`, `yuerr`, and `ylerr`; `nothing` is used for data with no errors.
 
 
@@ -220,6 +220,13 @@ Returns a single value or array of values in the order `lc`, `lt`, `pt`
 
 Version history
 ===============
+
+Version 0.3.0
+-------------
+- Rename kwarg `renameDF` to `select_cols` in function `load_PlotData`
+- Don't exit Julia, when scripts are aborted and only prematurely `return nothing`
+  from functions
+- Bugfixes
 
 Version 0.2.0
 -------------
