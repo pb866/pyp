@@ -120,7 +120,8 @@ function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
   else
     if length(renameDF) ≠ 6
       println("\\'renameDF\\' not correctly defined. Define all column names for")
-      println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped."); exit()
+      println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped.")
+      return nothing
     end
     DFnames = deepcopy(renameDF)
   end
@@ -267,8 +268,8 @@ function plot_data(plot_list::PlotData...;
                   plot_type::String="default", cs::Union{String, Vector{String}}="",
                   lt="default", pt="default", lc::Union{String, Vector{String}}="default",
                   alpha::Number=-1, xlims=nothing, ylims=nothing, mticks::String="on",
-                  min_xticks::Union{Int64,Vector{Int64},Vector{Float64}}=0,
-                  min_yticks::Union{Int64, Vector{Int64}}=0,
+                  min_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
+                  min_yticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
                   maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
                   maj_yticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
                   figsize::Tuple{Number,Number}=(6,4), fontsize::Number=12,
@@ -290,7 +291,7 @@ function plot_data(plot_list::PlotData...;
 
   # Check kwarg aliases as set all to the same value
   ti, cs, lt, pt, lc, legpos = checkaliases(ti, title, cs, colorscheme, colourscheme,
-    lt, linestyle, linetype, pt,  mt, marker, dashes, lc, linecolor, linecolour,
+    lt, linestyle, linetype, pt, mt, marker, dashes, lc, linecolor, linecolour,
     color, colour, legpos, legloc, loc)
 
   # Start plot
@@ -300,6 +301,7 @@ function plot_data(plot_list::PlotData...;
     maj_yticks, min_yticks, cs, lc, lt, pt, axcolour =
     setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
     maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
+  if plt == nothing  return nothing, nothing  end
   ax = [ax1, ax2]
 
   # Ensure strictly positive or negative values for log plots
@@ -735,15 +737,15 @@ based on the keyword given in `err`.
 function rename_DF(pltdata, DFnames, err)
   if err == "None"
     names!(pltdata,DFnames[1:2])
-  elseif startswith(err,"pm") && endswith(err,"x")
+  elseif (startswith(err,"pm") && endswith(err,"x")) || err == "valuex"
     names!(pltdata,DFnames[[1,2,5,6]])
   elseif endswith(err,"x")
     names!(pltdata,DFnames[[1,2,5]])
-  elseif startswith(err,"pm") && endswith(err,"y")
+  elseif (startswith(err,"pm") && endswith(err,"y")) || err == "valuey"
     names!(pltdata,DFnames[1:4])
   elseif endswith(err,"y")
     names!(pltdata,DFnames[1:3])
-  elseif startswith(err,"pm")
+  elseif startswith(err,"pm") || err == "value"
     names!(pltdata,DFnames)
   else
     names!(pltdata,DFnames[[1,2,3,5]])
@@ -878,7 +880,9 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
     # Check correct input of twinax
     if length(twinax) ≠ length(plot_list)
       println("Array `twinax` must have the same length as array `phot_list`.")
-      println("Script stopped."); exit()
+      println("Script stopped.");
+      return nothing, nothing, nothing, nothing, nothing, nothing, nothing,
+             nothing, nothing, nothing, nothing, nothing, nothing, nothing
     end
 
     # Assign data to the axes
@@ -1071,8 +1075,7 @@ function plt_DataWithErrors(plt, ax, offset)
     elseif plt[i].xuerr ≠ nothing && plt[i].yuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
-          yerr=[yerr[i][:lower], yerr[i][:upper]], lt= "None",
-          marker=plt[i].marker, color=plt[i].colour,
+          yerr=[yerr[i][:lower], yerr[i][:upper]], fmt=plt[i].marker, color=plt[i].colour,
           label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       else
         ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
@@ -1083,8 +1086,8 @@ function plt_DataWithErrors(plt, ax, offset)
     elseif plt[i].yuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
         ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
-          lt= "None", marker=plt[i].marker,
-          color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
+          fmt=plt[i].marker, color=plt[i].colour, label=plt[i].label, capsize=3+offset,
+          alpha=plt[i].alpha)
       else
         ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
           lw = plt[i].lw, marker=plt[i].marker, dashes=plt[i].dashes,
