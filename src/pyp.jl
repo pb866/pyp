@@ -18,7 +18,7 @@ Load data and plot with PyPlot.
 - sel_ls
 
 ## Private
-- rename_DF
+- renameDF
 - calc_errors
 - setup_axes
 - set_style
@@ -100,7 +100,7 @@ as well as formatting parameters into a new DataType `PlotData`.
 + `SF` (`Number`): scaling factor of y data and associated errors (**default:** `1`, no scaling)
 + `label` (`String`): Label for legend
   - `""` (empty string, **default**): no legend label
-+ `renameDF` (`Vector{Symbol}`):
++ `select_cols` (`Vector{Symbol}`):
   - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`)
   - `Array{Symbol, 1}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
    (give complete list, even if columns are incomplete due to the choice of `err`)
@@ -109,21 +109,21 @@ function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
          pt::Union{AbstractString,Int64}="None",
          lt::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[],
          lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
-         label::String="", alpha::Number=1, renameDF::Vector{Symbol}=Symbol[])
+         label::String="", alpha::Number=1, select_cols::Vector{Symbol}=Symbol[])
 
   # Make copy of plotdata that can be altered
   pltdata = deepcopy(plotdata)
   # (Re-)define column names of DataFrame
-  if isempty(renameDF)
+  if isempty(select_cols)
     DFnames = Symbol[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]
-    pltdata = rename_DF(pltdata, DFnames, err)
+    pltdata = renameDF(pltdata, DFnames, err)
   else
-    if length(renameDF) ≠ 6
-      println("\\'renameDF\\' not correctly defined. Define all column names for")
+    if length(select_cols) ≠ 6
+      println("\\'select_cols\\' not correctly defined. Define all column names for")
       println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped.")
       return nothing
     end
-    DFnames = deepcopy(renameDF)
+    DFnames = deepcopy(select_cols)
   end
 
   # Calculate error columns depending on choice of `err`
@@ -718,7 +718,7 @@ end #function sel_ls
 ### Functions associated with load_PlotData
 
 """
-    rename_DF(pltdata, DFnames, err)
+    renameDF(pltdata, DFnames, err)
 
 Rename columns in DataFrame `pltdata` with names specified in array `DFnames` with
 entries for x, y, lower y error, upper y error, lower x error, and upper x error
@@ -734,7 +734,7 @@ based on the keyword given in `err`.
 - `"pmfactorx"`, `"pmfactory"`, `"pmfactor"` (as above with different lower/upper values)
 - `"valuex"`, `"valuey"`, `"value"` (err value directly taken from column)
 """
-function rename_DF(pltdata, DFnames, err)
+function renameDF(pltdata, DFnames, err)
   if err == "None"
     names!(pltdata,DFnames[1:2])
   elseif (startswith(err,"pm") && endswith(err,"x")) || err == "valuex"
@@ -752,7 +752,7 @@ function rename_DF(pltdata, DFnames, err)
   end
 
   return pltdata
-end #function rename_DF
+end #function renameDF
 
 
 """
