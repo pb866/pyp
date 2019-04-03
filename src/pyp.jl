@@ -12,7 +12,7 @@ Load data and plot with PyPlot.
 # Functions
 
 ## Public
-- load_plotdata
+- load_PlotData
 - plot_data
 - plot_stack
 - sel_ls
@@ -120,9 +120,8 @@ function load_PlotData(plotdata::DataFrame;  err::String="None",
     pltdata = renameDF(pltdata, DFnames, err)
   else
     if length(select_cols) ≠ 6
-      println("\\'select_cols\\' not correctly defined. Define all column names for")
-      println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped.")
-      return nothing
+      throw(ArgumentError(string("for `select_cols`.\n",
+        "Define all column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, and `xuerr`.")))
     end
     DFnames = deepcopy(select_cols)
   end
@@ -302,7 +301,6 @@ function plot_data(plot_list::PlotData...;
     maj_yticks, min_yticks, cs, lc, lt, pt, axcolour =
     setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
     maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
-  if plt == nothing  return nothing, nothing  end
   ax = [ax1, ax2]
 
   # Ensure strictly positive or negative values for log plots
@@ -880,10 +878,8 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
     ax2 = twinx()
     # Check correct input of twinax
     if length(twinax) ≠ length(plot_list)
-      println("Array `twinax` must have the same length as array `phot_list`.")
-      println("Script stopped.");
-      return nothing, nothing, nothing, nothing, nothing, nothing, nothing,
-             nothing, nothing, nothing, nothing, nothing, nothing, nothing
+      throw(ArgumentError(string("Array `twinax` must have the same length ",
+        "as there are number of `PhotData` elements.")))
     end
 
     # Assign data to the axes
@@ -1289,9 +1285,9 @@ function checkalias(;kwargs, alias=[""], default=[""])
   kw = kwargs[setkw]
   al = alias[setkw]
   if length(unique(kw)) > 1
-    println("\033[95mWarning! Multiple definitions of keyword aliases ",
-      join(al, ", ", " and "), "!")
-    println("$(al[1]) = $(kw[1]) used.\33[0m")
+    warning = string("\033[93mMultiple definitions of keyword aliases ",
+      join(al, ", ", " and "), "!\n\33[0m`$(al[1]) = \"$(kw[1])\"` used.")
+    @warn(warning)
     kwargs[1] = kw[1]
   elseif length(unique(kw)) == 1
     kwargs[1] = kw[1]
