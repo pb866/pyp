@@ -221,6 +221,12 @@ Returns a single value or array of values in the order `lc`, `lt`, `pt`
 Version history
 ===============
 
+Version 0.4.0
+-------------
+- Update to new `PyPlot` syntax using `object.method` instead of `object[:method]`
+- Prefer package `import` over `using` (except for `PyPlot` and `LaTeXStrings`)
+- Revised exception handling: use `throw()` and `@warn` for errors/warnings
+
 Version 0.3.0
 -------------
 - Rename kwarg `renameDF` to `select_cols` in function `load_PlotData`
