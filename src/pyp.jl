@@ -12,7 +12,7 @@ Load data and plot with PyPlot.
 # Functions
 
 ## Public
-- load_plotdata
+- load_PlotData
 - plot_data
 - plot_stack
 - sel_ls
@@ -32,12 +32,13 @@ module pyp
 
 
 ###  Load Julia packages  ###
-using DataFrames
 using PyPlot
 using LaTeXStrings
-using Parameters
-using LinearAlgebra
-using Dates
+import Dates
+import Parameters; const par = Parameters
+import DataFrames; const df = DataFrames
+import DataFrames.DataFrame
+import LinearAlgebra.⋅
 
 
 # Export public functions
@@ -48,8 +49,8 @@ export load_PlotData,
        PlotData
 
 ### NEW TYPES
-@with_kw mutable struct PlotData
-  x::Union{Vector{Int64},Vector{Float64},Vector{DateTime}}
+par.@with_kw mutable struct PlotData
+  x::Union{Vector{Int64},Vector{Float64},Vector{Dates.DateTime}}
   y::Union{Vector{Int64},Vector{Float64}}
   xuerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
   xlerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
@@ -105,7 +106,7 @@ as well as formatting parameters into a new DataType `PlotData`.
   - `Array{Symbol, 1}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
-function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
+function load_PlotData(plotdata::DataFrame;  err::String="None",
          pt::Union{AbstractString,Int64}="None",
          lt::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[],
          lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
@@ -119,9 +120,8 @@ function load_PlotData(plotdata::DataFrames.DataFrame;  err::String="None",
     pltdata = renameDF(pltdata, DFnames, err)
   else
     if length(select_cols) ≠ 6
-      println("\\'select_cols\\' not correctly defined. Define all column names for")
-      println("x, y, ylerr, yuerr, xlerr, and xuerr. Script stopped.")
-      return nothing
+      throw(ArgumentError(string("for `select_cols`.\n",
+        "Define all column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, and `xuerr`.")))
     end
     DFnames = deepcopy(select_cols)
   end
@@ -301,7 +301,6 @@ function plot_data(plot_list::PlotData...;
     maj_yticks, min_yticks, cs, lc, lt, pt, axcolour =
     setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
     maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
-  if plt == nothing  return nothing, nothing  end
   ax = [ax1, ax2]
 
   # Ensure strictly positive or negative values for log plots
@@ -321,38 +320,38 @@ function plot_data(plot_list::PlotData...;
 
   # Set axes limits
   for i = 1:length(plt)
-    ax[i][:set_xlim](xlimit[i]); ax[i][:set_ylim](ylimit[i])
+    ax[i].set_xlim(xlimit[i]); ax[i].set_ylim(ylimit[i])
   end
 
   # Set plot title
-  ax[1][:set_title](ti, fontsize=fontsize+ti_offset)
+  ax[1].set_title(ti, fontsize=fontsize+ti_offset)
 
   # Generate axes labels and legend, define axes label/tick colours
-  ax[1][:set_xlabel](xlabel,fontsize=fontsize+ax_offset)
+  ax[1].set_xlabel(xlabel,fontsize=fontsize+ax_offset)
   for n = 1:length(ylabel)
-    ax[n][:set_ylabel](ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
+    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
   end
-  [setp(ax[n][:get_yticklabels](),color=axcolour[n]) for n = 1:length(axcolour)]
+  [setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
 
   if ax[2] ≠ nothing
-    pleg = vcat(ax[1][:get_legend_handles_labels]()[1], ax[2][:get_legend_handles_labels]()[1])
-    plab = vcat(ax[1][:get_legend_handles_labels]()[2], ax[2][:get_legend_handles_labels]()[2])
+    pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
+    plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
     if any(plab .≠ "") && legpos ≠ "None"
-      ax[1][:legend](pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+      ax[1].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
     end
   elseif legpos ≠ "None" && any([p.label≠"" for p in plt[1]])
-    ax[1][:legend](fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+    ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
   end
 
 
   # Set ticks and optional minor ticks
-  if typeof(plot_list[1].x) ≠ Vector{DateTime}  if maj_xticks > 0
-    xint = collect(ax[1][:get_xlim]()[1]:maj_xticks:ax[1][:get_xlim]()[2])
-    for i = 1:length(plt)  ax[i][:set_xticks](xint)  end
+  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
+    xint = collect(ax[1].get_xlim()[1]:maj_xticks:ax[1].get_xlim()[2])
+    for i = 1:length(plt)  ax[i].set_xticks(xint)  end
   end  end
   if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
-    yint = collect(ax[i][:get_ylim]()[1]:maj_yticks[i]:ax[i][:get_ylim]()[2])
-    ax[i][:set_yticks](yint)
+    yint = collect(ax[i].get_ylim()[1]:maj_yticks[i]:ax[i].get_ylim()[2])
+    ax[i].set_yticks(yint)
   end  end
   if mticks == "on"
     minorticks_on()
@@ -360,11 +359,11 @@ function plot_data(plot_list::PlotData...;
     minorticks_off()
   end
   # Set minor x ticks
-  if typeof(plot_list[1].x) ≠ Vector{DateTime}
+  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
     if min_xticks > 0
-      mx = matplotlib[:ticker][:MultipleLocator](min_xticks)
+      mx = matplotlib.ticker.MultipleLocator(min_xticks)
       for i = 1:length(plt)
-        ax[i][:xaxis][:set_minor_locator](mx)
+        ax[i].xaxis.set_minor_locator(mx)
       end
     end
   elseif min_xticks isa Number
@@ -373,43 +372,43 @@ function plot_data(plot_list::PlotData...;
   # Set minor y ticks
   for i = 1:length(min_yticks)
     if min_yticks[i] > 0
-      my = matplotlib[:ticker][:MultipleLocator](min_yticks[i])
-      ax[i][:yaxis][:set_minor_locator](my)
+      my = matplotlib.ticker.MultipleLocator(min_yticks[i])
+      ax[i].yaxis.set_minor_locator(my)
     end
   end
   # Format ticks and frame
   Mtlen = ticksize[1]⋅framewidth
   mtlen = ticksize[2]⋅framewidth
   for i = 1:length(plt)
-    ax[i][:tick_params]("both", which="both", direction="in", top="on", right="on",
+    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
       labelsize=fontsize, width=framewidth)
-    ax[i][:grid](linestyle=":", linewidth = framewidth)
-    ax[i][:spines]["bottom"][:set_linewidth](framewidth)
-    ax[i][:spines]["top"][:set_linewidth](framewidth)
-    ax[i][:spines]["left"][:set_linewidth](framewidth)
-    ax[i][:spines]["right"][:set_linewidth](framewidth)
-    if typeof(plot_list[1].x) ≠ Vector{DateTime}
-      ax[i][:tick_params]("both", which="major", length=Mtlen)
-      ax[i][:tick_params]("both", which="minor", length=mtlen)
+    ax[i].grid(linestyle=":", linewidth = framewidth)
+    ax[i].spines["bottom"].set_linewidth(framewidth)
+    ax[i].spines["top"].set_linewidth(framewidth)
+    ax[i].spines["left"].set_linewidth(framewidth)
+    ax[i].spines["right"].set_linewidth(framewidth)
+    if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
+      ax[i].tick_params("both", which="major", length=Mtlen)
+      ax[i].tick_params("both", which="minor", length=mtlen)
     else
-      ax[i][:set_xlim](xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
+      ax[i].set_xlim(xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
       if maj_xticks isa Vector
-        majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b, %H:%M")
+        majorformatter = matplotlib.dates.DateFormatter("%d. %b, %H:%M")
       else
-        majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b")
+        majorformatter = matplotlib.dates.DateFormatter("%d. %b")
       end
-      minorformatter = matplotlib[:dates][:DateFormatter]("")
-      majorlocator = matplotlib[:dates][:HourLocator](byhour=maj_xticks)
-      minorlocator = matplotlib[:dates][:HourLocator](byhour=min_xticks)
-      ax[i][:xaxis][:set_major_formatter](majorformatter)
-      ax[i][:xaxis][:set_minor_formatter](minorformatter)
-      ax[i][:xaxis][:set_major_locator](majorlocator)
-      ax[i][:xaxis][:set_minor_locator](minorlocator)
-      fig[:autofmt_xdate](bottom=0.2,rotation=-30,ha="left")
+      minorformatter = matplotlib.dates.DateFormatter("")
+      majorlocator = matplotlib.dates.HourLocator(byhour=maj_xticks)
+      minorlocator = matplotlib.dates.HourLocator(byhour=min_xticks)
+      ax[i].xaxis.set_major_formatter(majorformatter)
+      ax[i].xaxis.set_minor_formatter(minorformatter)
+      ax[i].xaxis.set_major_locator(majorlocator)
+      ax[i].xaxis.set_minor_locator(minorlocator)
+      fig.autofmt_xdate(bottom=0.2,rotation=-30,ha="left")
     end
   end
 
-  tight_layout()
+  fig.tight_layout()
 
   # Return PyPlot data
   return fig, ax[1], ax[2]
@@ -571,7 +570,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
   end
 
   # Set ticks and optional minor ticks
-  if typeof(plot_list[1].x) ≠ Vector{DateTime}  if maj_xticks > 0
+  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
     xint = collect(ax[:get_xlim]()[1]:maj_xticks:ax[:get_xlim]()[2])
     ax[:set_xticks](xint)
   end  end
@@ -585,7 +584,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
     minorticks_off()
   end
   # Set minor x ticks
-  if typeof(plot_list[1].x) ≠ Vector{DateTime}
+  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
     if min_xticks > 0
       mx = matplotlib[:ticker][:MultipleLocator](min_xticks)
       ax[:xaxis][:set_minor_locator](mx)
@@ -610,7 +609,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
   ax[:spines]["top"][:set_linewidth](framewidth)
   ax[:spines]["left"][:set_linewidth](framewidth)
   ax[:spines]["right"][:set_linewidth](framewidth)
-  if typeof(plot_list[1].x) ≠ Vector{DateTime}
+  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
     ax[:tick_params]("both", which="major", length=Mtlen)
     ax[:tick_params]("both", which="minor", length=mtlen)
   else
@@ -630,7 +629,7 @@ function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
     fig[:autofmt_xdate](bottom=0.2,rotation=-30,ha="left")
   end
 
-  tight_layout()
+  fig.tight_layout()
 
   # Return PyPlot data
   return fig, ax
@@ -736,19 +735,19 @@ based on the keyword given in `err`.
 """
 function renameDF(pltdata, DFnames, err)
   if err == "None"
-    names!(pltdata,DFnames[1:2])
+    df.names!(pltdata,DFnames[1:2])
   elseif (startswith(err,"pm") && endswith(err,"x")) || err == "valuex"
-    names!(pltdata,DFnames[[1,2,5,6]])
+    df.names!(pltdata,DFnames[[1,2,5,6]])
   elseif endswith(err,"x")
-    names!(pltdata,DFnames[[1,2,5]])
+    df.names!(pltdata,DFnames[[1,2,5]])
   elseif (startswith(err,"pm") && endswith(err,"y")) || err == "valuey"
-    names!(pltdata,DFnames[1:4])
+    df.names!(pltdata,DFnames[1:4])
   elseif endswith(err,"y")
-    names!(pltdata,DFnames[1:3])
+    df.names!(pltdata,DFnames[1:3])
   elseif startswith(err,"pm") || err == "value"
-    names!(pltdata,DFnames)
+    df.names!(pltdata,DFnames)
   else
-    names!(pltdata,DFnames[[1,2,3,5]])
+    df.names!(pltdata,DFnames[[1,2,3,5]])
   end
 
   return pltdata
@@ -879,10 +878,8 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
     ax2 = twinx()
     # Check correct input of twinax
     if length(twinax) ≠ length(plot_list)
-      println("Array `twinax` must have the same length as array `phot_list`.")
-      println("Script stopped.");
-      return nothing, nothing, nothing, nothing, nothing, nothing, nothing,
-             nothing, nothing, nothing, nothing, nothing, nothing, nothing
+      throw(ArgumentError(string("Array `twinax` must have the same length ",
+        "as there are number of `PhotData` elements.")))
     end
 
     # Assign data to the axes
@@ -1067,48 +1064,48 @@ function plt_DataWithErrors(plt, ax, offset)
   # defined by the struct PlotData
   for i = 1:length(plt)
     if plt[i].yuerr ≠ nothing && plt[i].marker == "None"
-      p=ax[:plot](plt[i].x, plt[i].y, lw = plt[i].lw,
+      p=ax.plot(plt[i].x, plt[i].y, lw = plt[i].lw,
           dashes=plt[i].dashes, color=plt[i].colour, label=plt[i].label)
-      plt[i].colour = p[1][:get_color]()
+      plt[i].colour = p[1].get_color()
       ax[:fill_between](plt[i].x, plt[i].ylerr, plt[i].yuerr,
           color=plt[i].colour, alpha=0.2)
     elseif plt[i].xuerr ≠ nothing && plt[i].yuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
-          yerr=[yerr[i][:lower], yerr[i][:upper]], fmt=plt[i].marker, color=plt[i].colour,
+        ax.errorbar(plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
+          yerr=[yerr[i].lower, yerr[i].upper], fmt=plt[i].marker, color=plt[i].colour,
           label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       else
-        ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
-          yerr=[yerr[i][:lower], yerr[i][:upper]], lw = plt[i].lw,
+        ax.errorbar(plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
+          yerr=[yerr[i].lower, yerr[i].upper], lw = plt[i].lw,
           marker=plt[i].marker, dashes=plt[i].dashes, color=plt[i].colour,
           label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       end
     elseif plt[i].yuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
+        ax.errorbar(plt[i].x, plt[i].y, yerr=[yerr[i].lower, yerr[i].upper],
           fmt=plt[i].marker, color=plt[i].colour, label=plt[i].label, capsize=3+offset,
           alpha=plt[i].alpha)
       else
-        ax[:errorbar](plt[i].x, plt[i].y, yerr=[yerr[i][:lower], yerr[i][:upper]],
+        ax.errorbar(plt[i].x, plt[i].y, yerr=[yerr[i].lower, yerr[i].upper],
           lw = plt[i].lw, marker=plt[i].marker, dashes=plt[i].dashes,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       end
     elseif plt[i].xuerr ≠ nothing
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
+        ax.errorbar(plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
           lt= "None", marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       else
-        ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i][:lower], xerr[i][:upper]],
+        ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
           lw = plt[i].lw, marker=plt[i].marker, dashes=plt[i].dashes,
           color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
       end
     else
       if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax[:scatter](plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
+        ax.scatter(plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
           color=plt[i].colour, label=plt[i].label, alpha=plt[i].alpha)
       else
-        ax[:plot](plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
+        ax.plot(plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
           dashes=plt[i].dashes, color=plt[i].colour, label=plt[i].label,
           alpha=plt[i].alpha)
       end
@@ -1288,9 +1285,9 @@ function checkalias(;kwargs, alias=[""], default=[""])
   kw = kwargs[setkw]
   al = alias[setkw]
   if length(unique(kw)) > 1
-    println("\033[95mWarning! Multiple definitions of keyword aliases ",
-      join(al, ", ", " and "), "!")
-    println("$(al[1]) = $(kw[1]) used.\33[0m")
+    warning = string("\033[93mMultiple definitions of keyword aliases ",
+      join(al, ", ", " and "), "!\n\33[0m`$(al[1]) = \"$(kw[1])\"` used.")
+    @warn(warning)
     kwargs[1] = kw[1]
   elseif length(unique(kw)) == 1
     kwargs[1] = kw[1]
