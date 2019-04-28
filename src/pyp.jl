@@ -35,9 +35,9 @@ module pyp
 # using Revise
 
 ###  Load Julia packages  ###
-using PyPlot; const plt = PyPlot
 using LaTeXStrings
 import Dates
+import PyPlot; const plt = PyPlot
 import Parameters; const par = Parameters
 import DataFrames; const df = DataFrames
 import DataFrames.DataFrame
@@ -330,7 +330,7 @@ function plot_data(plot_list::PlotData...;
   for n = 1:length(ylabel)
     ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
   end
-  [setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
+  [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
 
   if length(ax) > 1
     pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
@@ -353,14 +353,14 @@ function plot_data(plot_list::PlotData...;
     ax[i].set_yticks(yint)
   end  end
   if mticks == "on"
-    minorticks_on()
+    plt.minorticks_on()
   else
-    minorticks_off()
+    plt.minorticks_off()
   end
   # Set minor x ticks
   if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
     if min_xticks > 0
-      mx = matplotlib.ticker.MultipleLocator(min_xticks)
+      mx = plt.matplotlib.ticker.MultipleLocator(min_xticks)
       for i = 1:length(pltdata)
         ax[i].xaxis.set_minor_locator(mx)
       end
@@ -371,7 +371,7 @@ function plot_data(plot_list::PlotData...;
   # Set minor y ticks
   for i = 1:length(min_yticks)
     if min_yticks[i] > 0
-      my = matplotlib.ticker.MultipleLocator(min_yticks[i])
+      my = plt.matplotlib.ticker.MultipleLocator(min_yticks[i])
       ax[i].yaxis.set_minor_locator(my)
     end
   end
@@ -392,13 +392,13 @@ function plot_data(plot_list::PlotData...;
     else
       ax[i].set_xlim(xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
       if maj_xticks isa Vector
-        majorformatter = matplotlib.dates.DateFormatter("%d. %b, %H:%M")
+        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b, %H:%M")
       else
-        majorformatter = matplotlib.dates.DateFormatter("%d. %b")
+        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b")
       end
-      minorformatter = matplotlib.dates.DateFormatter("")
-      majorlocator = matplotlib.dates.HourLocator(byhour=maj_xticks)
-      minorlocator = matplotlib.dates.HourLocator(byhour=min_xticks)
+      minorformatter = plt.matplotlib.dates.DateFormatter("")
+      majorlocator = plt.matplotlib.dates.HourLocator(byhour=maj_xticks)
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=min_xticks)
       ax[i].xaxis.set_major_formatter(majorformatter)
       ax[i].xaxis.set_minor_formatter(minorformatter)
       ax[i].xaxis.set_major_locator(majorlocator)
@@ -865,7 +865,7 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
                     maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
 
   # Start plot
-  fig, ax = subplots(figsize=figsize)
+  fig, ax = plt.subplots(figsize=figsize)
   ax = [ax]
 
   # Set flag for second axis, asume no second axis
@@ -879,7 +879,7 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
   cl2 = String[]; dt2 = []; mt2 = []
   if !isempty(twinax)
     # Set flag true and define 2nd axis in PyPlot
-    push!(ax, twinx())
+    push!(ax, plt.twinx())
     # Check correct input of twinax
     if length(twinax) ≠ length(plot_list)
       throw(ArgumentError(string("Array `twinax` must have the same length ",
@@ -1067,7 +1067,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
   # defined by the struct PlotData
   for i = 1:length(pltdata)
     if pltdata[i].yuerr ≠ nothing && pltdata[i].marker == "None"
-      p=ax.plot(pltdata[i].x, pltdata[i].y, lw = pltdata[i].lw,
+      p = ax.plot(pltdata[i].x, pltdata[i].y, lw = pltdata[i].lw,
           dashes=pltdata[i].dashes, color=pltdata[i].colour, label=pltdata[i].label)
       pltdata[i].colour = p[1].get_color()
       ax.fill_between(pltdata[i].x, pltdata[i].ylerr, pltdata[i].yuerr,
