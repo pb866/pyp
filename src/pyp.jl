@@ -336,7 +336,7 @@ function plot_data(plot_list::PlotData...;
     pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
     plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
     if any(plab .≠ "") && legpos ≠ "None"
-      ax[1].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+      ax[2].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
     end
   elseif legpos ≠ "None" && any([p.label≠"" for p in pltdata[1]])
     ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
