@@ -20,21 +20,24 @@ Load data and plot with PyPlot.
 ## Private
 - renameDF
 - calc_errors
-- setup_axes
+- setup_plot
 - set_style
 - plt_DataWithErrors
 - redef_err
 - set_log
+- find_limits
 - logBounds
 - set_log2
 """
 module pyp
 
+# Track changes during development
+# using Revise
 
 ###  Load Julia packages  ###
-using PyPlot
 using LaTeXStrings
 import Dates
+import PyPlot; const plt = PyPlot
 import Parameters; const par = Parameters
 import DataFrames; const df = DataFrames
 import DataFrames.DataFrame
@@ -294,33 +297,29 @@ function plot_data(plot_list::PlotData...;
     lt, linestyle, linetype, pt, mt, marker, dashes, lc, linecolor, linecolour,
     color, colour, legpos, legloc, loc)
 
-  # Start plot
-  fig, ax1 = subplots(figsize=figsize)
   # Check for twin axes and devide datasets
-  plt, ax2, ylabel, logscale, logremove, xlimit, ylimit,
+  pltdata, fig, ax, ylabel, logscale, logremove, xlimit, ylimit,
     maj_yticks, min_yticks, cs, lc, lt, pt, axcolour =
-    setup_axes(plot_list, twinax, ylabel, logscale, logremove, xlims, ylims,
+    setup_plot(plot_list, figsize, twinax, ylabel, logscale, logremove, xlims, ylims,
     maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
-  ax = [ax1, ax2]
 
   # Ensure strictly positive or negative values for log plots
-  plt = remove_log(plt, logremove, logscale)
+  pltdata = remove_log(pltdata, logremove, logscale)
 
   # set colour scheme
-  plt = set_style(plt, plot_type, cs, lc, lt, pt)
+  pltdata = set_style(pltdata, plot_type, cs, lc, lt, pt)
 
   # Plot data and associated errors
-  for i = 1:length(plt)
-    plt[i], ax[i] = plt_DataWithErrors(plt[i], ax[i], cap_offset)
+  for i = 1:length(pltdata)
+    pltdata[i], ax[i] = plt_DataWithErrors(pltdata[i], ax[i], cap_offset)
   end
 
   # Define logscales
-  ax, xlimit = set_log(plt, ax, xlimit, logscale, "x")
-  ax, ylimit = set_log(plt, ax, ylimit, logscale, "y")
+  ax, xlimit, ylimit = set_log(pltdata, ax, logscale, xlimit, ylimit)
 
   # Set axes limits
-  for i = 1:length(plt)
-    ax[i].set_xlim(xlimit[i]); ax[i].set_ylim(ylimit[i])
+  for (i, a) in enumerate(ax)
+    a.set_xlim(xlimit[i]); a.set_ylim(ylimit[i])
   end
 
   # Set plot title
@@ -331,15 +330,15 @@ function plot_data(plot_list::PlotData...;
   for n = 1:length(ylabel)
     ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
   end
-  [setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
+  [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
 
-  if ax[2] ≠ nothing
+  if length(ax) > 1
     pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
     plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
     if any(plab .≠ "") && legpos ≠ "None"
-      ax[1].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+      ax[2].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
     end
-  elseif legpos ≠ "None" && any([p.label≠"" for p in plt[1]])
+  elseif legpos ≠ "None" && any([p.label≠"" for p in pltdata[1]])
     ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
   end
 
@@ -347,22 +346,22 @@ function plot_data(plot_list::PlotData...;
   # Set ticks and optional minor ticks
   if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
     xint = collect(ax[1].get_xlim()[1]:maj_xticks:ax[1].get_xlim()[2])
-    for i = 1:length(plt)  ax[i].set_xticks(xint)  end
+    for i = 1:length(pltdata)  ax[i].set_xticks(xint)  end
   end  end
   if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
     yint = collect(ax[i].get_ylim()[1]:maj_yticks[i]:ax[i].get_ylim()[2])
     ax[i].set_yticks(yint)
   end  end
   if mticks == "on"
-    minorticks_on()
+    plt.minorticks_on()
   else
-    minorticks_off()
+    plt.minorticks_off()
   end
   # Set minor x ticks
   if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
     if min_xticks > 0
-      mx = matplotlib.ticker.MultipleLocator(min_xticks)
-      for i = 1:length(plt)
+      mx = plt.matplotlib.ticker.MultipleLocator(min_xticks)
+      for i = 1:length(pltdata)
         ax[i].xaxis.set_minor_locator(mx)
       end
     end
@@ -372,14 +371,14 @@ function plot_data(plot_list::PlotData...;
   # Set minor y ticks
   for i = 1:length(min_yticks)
     if min_yticks[i] > 0
-      my = matplotlib.ticker.MultipleLocator(min_yticks[i])
+      my = plt.matplotlib.ticker.MultipleLocator(min_yticks[i])
       ax[i].yaxis.set_minor_locator(my)
     end
   end
   # Format ticks and frame
   Mtlen = ticksize[1]⋅framewidth
   mtlen = ticksize[2]⋅framewidth
-  for i = 1:length(plt)
+  for i = 1:length(pltdata)
     ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
       labelsize=fontsize, width=framewidth)
     ax[i].grid(linestyle=":", linewidth = framewidth)
@@ -393,13 +392,13 @@ function plot_data(plot_list::PlotData...;
     else
       ax[i].set_xlim(xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
       if maj_xticks isa Vector
-        majorformatter = matplotlib.dates.DateFormatter("%d. %b, %H:%M")
+        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b, %H:%M")
       else
-        majorformatter = matplotlib.dates.DateFormatter("%d. %b")
+        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b")
       end
-      minorformatter = matplotlib.dates.DateFormatter("")
-      majorlocator = matplotlib.dates.HourLocator(byhour=maj_xticks)
-      minorlocator = matplotlib.dates.HourLocator(byhour=min_xticks)
+      minorformatter = plt.matplotlib.dates.DateFormatter("")
+      majorlocator = plt.matplotlib.dates.HourLocator(byhour=maj_xticks)
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=min_xticks)
       ax[i].xaxis.set_major_formatter(majorformatter)
       ax[i].xaxis.set_minor_formatter(minorformatter)
       ax[i].xaxis.set_major_locator(majorlocator)
@@ -407,8 +406,10 @@ function plot_data(plot_list::PlotData...;
       fig.autofmt_xdate(bottom=0.2,rotation=-30,ha="left")
     end
   end
-
   fig.tight_layout()
+
+  # Add nothing to ax in case 2nd axis is missing
+  push!(ax, nothing)
 
   # Return PyPlot data
   return fig, ax[1], ax[2]
@@ -853,18 +854,21 @@ end #function calc_errors
 ### Functions associated with plot_data
 
 """
-    setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
+    setup_plot(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
 
 If `twinax` is an array split `plot_list` into 2 datasets based on the indices
 in `twinax`. Assure all paramters concerning y data are arrays of length 2, if
 a second axis is allowed or length 1 otherwise. Return `plot_list` as array of
 2 or 1 distinct lists an the adjusted parameters.
 """
-function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
+function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims, ylims,
                     maj_yticks, min_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
 
+  # Start plot
+  fig, ax = plt.subplots(figsize=figsize)
+  ax = [ax]
+
   # Set flag for second axis, asume no second axis
-  ax2 = nothing
   xlim = []; ylim = []
 
   [p.alpha = alpha for p in plot_list if alpha ≥ 0]
@@ -875,7 +879,7 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
   cl2 = String[]; dt2 = []; mt2 = []
   if !isempty(twinax)
     # Set flag true and define 2nd axis in PyPlot
-    ax2 = twinx()
+    push!(ax, plt.twinx())
     # Check correct input of twinax
     if length(twinax) ≠ length(plot_list)
       throw(ArgumentError(string("Array `twinax` must have the same length ",
@@ -965,15 +969,14 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
     # if legcolumns isa Int64  legcolumns = [legcolumns]  end
   end
   if ylab isa String  ylab = String[ylab]  end
-  if ax2 ≠ nothing
-    plt = [plt1, plt2]
+  if length(ax) > 1
+    pltdata = [plt1, plt2]
     if !isa(cs, Vector) cs = [cs, cs]  end
     lc = [cl1, cl2]
     lt = [dt1, dt2]
     pt = [mt1, mt2]
-    if !isa(cs, Vector) cs = [cs, cs]  end
   else
-    plt = [plt1]
+    pltdata = [plt1]
     cs = [cs]
     lc = [cl1]
     lt = [dt1]
@@ -981,158 +984,158 @@ function setup_axes(plot_list, twinax, ylab, logscale, logremove, xlims, ylims,
   end
 
   # Return adjusted data
-  return plt, ax2, ylab, logscale, logremove, xlimit, ylimit,
+  return pltdata, fig, ax, ylab, logscale, logremove, xlimit, ylimit,
          maj_yticks, min_yticks, cs, lc, lt, pt, axcolour
-end #function setup_axes
+end #function setup_plot
 
 
 """
-    set_style(plt, ptype, cs, lc, lt, pt, ax_2)
+    set_style(pltdata, ptype, cs, lc, lt, pt, ax_2)
 
-Set colour scheme for `plt` holding `PlotData` to `cs` from
+Set colour scheme for `pltdata` holding `PlotData` to `cs` from
 function `sel_ls`. If colour scheme is set to `"own"` or `"mix"` for any array
-element in `plt`, `lc`, `lt`, and `pt` must hold valid definitions of line colours,
+element in `pltdata`, `lc`, `lt`, and `pt` must hold valid definitions of line colours,
 line and point (marker) types at this array position. The boolean `ax_2` is needed
 to specify, whether a second axis is used.
 """
-function set_style(plt, ptype, cs, lc, lt, pt)
+function set_style(pltdata, ptype, cs, lc, lt, pt)
 
   # Reset line and marker types to solid lines and squares, respectively,
   # if plot_type is set to line, scatter or both (markers connected by lines)
-  for i = 1:length(plt)
+  for i = 1:length(pltdata)
     if ptype == "line"
-      [plt[i][j].dashes = Int64[] for j = 1:length(lt[i])]
-      [plt[i][j].marker = "None" for j = 1:length(lt[i])]
+      [pltdata[i][j].dashes = Int64[] for j = 1:length(lt[i])]
+      [pltdata[i][j].marker = "None" for j = 1:length(lt[i])]
     elseif ptype == "scatter"
-      [plt[i][j].dashes = "None" for j = 1:length(lt[i])]
-      [plt[i][j].marker = "s" for j = 1:length(lt[i])]
+      [pltdata[i][j].dashes = "None" for j = 1:length(lt[i])]
+      [pltdata[i][j].marker = "s" for j = 1:length(lt[i])]
     elseif ptype == "both"
-      [plt[i][j].dashes = Int64[] for j = 1:length(lt[i])]
-      [plt[i][j].marker = "s" for j = 1:length(pt[i])]
+      [pltdata[i][j].dashes = Int64[] for j = 1:length(lt[i])]
+      [pltdata[i][j].marker = "s" for j = 1:length(pt[i])]
     end
   end
 
   # Set index for sel_ls function, start at 1 for separate schemes
   # and use continuous indexing for the same scheme
   idx = []
-  push!(idx, [i for i = 1:length(plt[1])])
+  push!(idx, [i for i = 1:length(pltdata[1])])
   if length(cs) == 2
     cs[1] == cs[2] ? ind = length(idx[1]) : ind = 0
-    push!(idx, [i+ind for i = 1:length(plt[2])])
+    push!(idx, [i+ind for i = 1:length(pltdata[2])])
   end
   # Set line/marker styles and colour for a chosen colour scheme
   # (overwrites default settings from plot_type)
-  for i = 1:length(plt)  if cs[i]≠""
-    for j = 1:length(plt[i])
+  for i = 1:length(pltdata)  if cs[i]≠""
+    for j = 1:length(pltdata[i])
       cl, dt, mt = sel_ls(cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
-      plt[i][j].colour = cl
-      if ptype ≠ "scatter"  plt[i][j].dashes = dt  end
-      if ptype ≠ "line"  plt[i][j].marker = mt  end
+      pltdata[i][j].colour = cl
+      if ptype ≠ "scatter"  pltdata[i][j].dashes = dt  end
+      if ptype ≠ "line"  pltdata[i][j].marker = mt  end
     end
   end  end
 
   # Set manually defined styles (overwrites previous settings)
   for i = 1:length(lc), j = 1:length(lc[i])
-    if lc[i][j] ≠ "default"  plt[i][j].colour = lc[i][j]  end
+    if lc[i][j] ≠ "default"  pltdata[i][j].colour = lc[i][j]  end
   end
   for i = 1:length(lc), j = 1:length(lc[i])
-    if lt[i][j] ≠ "default"  plt[i][j].dashes = lt[i][j]  end
+    if lt[i][j] ≠ "default"  pltdata[i][j].dashes = lt[i][j]  end
   end
   for i = 1:length(lc), j = 1:length(lc[i])
-    if pt[i][j] ≠ "default"  plt[i][j].marker = pt[i][j]  end
+    if pt[i][j] ≠ "default"  pltdata[i][j].marker = pt[i][j]  end
   end
 
   # Return adjusted PlotData
-  return plt
+  return pltdata
 end #function set_style
 
 
 """
-    plt_DataWithErrors(plt, ax, offset)
+    plt_DataWithErrors(pltdata, ax, offset)
 
-For each `PlotData` in array `plt` (and `ax`), retrieve the errors in the `PlotData` and
+For each `PlotData` in array `pltdata` (and `ax`), retrieve the errors in the `PlotData` and
 plot according to specifications. For error bars of markers, the standard cap size is `3`,
 which can be adjusted by an `offset` (positive or negative number to be added to cap size).
 
 Returns `fig` and `ax` (array of axes) for further plot modifications or printing.
 """
-function plt_DataWithErrors(plt, ax, offset)
+function plt_DataWithErrors(pltdata, ax, offset)
   # Redefine errors for error bars
-  xerr = redef_err(plt,:x,:xlerr,:xuerr)
-  yerr = redef_err(plt,:y,:ylerr,:yuerr)
+  xerr = redef_err(pltdata,:x,:xlerr,:xuerr)
+  yerr = redef_err(pltdata,:y,:ylerr,:yuerr)
   # Loop over graph data and plot each data according to its type and format
   # defined by the struct PlotData
-  for i = 1:length(plt)
-    if plt[i].yuerr ≠ nothing && plt[i].marker == "None"
-      p=ax.plot(plt[i].x, plt[i].y, lw = plt[i].lw,
-          dashes=plt[i].dashes, color=plt[i].colour, label=plt[i].label)
-      plt[i].colour = p[1].get_color()
-      ax[:fill_between](plt[i].x, plt[i].ylerr, plt[i].yuerr,
-          color=plt[i].colour, alpha=0.2)
-    elseif plt[i].xuerr ≠ nothing && plt[i].yuerr ≠ nothing
-      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax.errorbar(plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
-          yerr=[yerr[i].lower, yerr[i].upper], fmt=plt[i].marker, color=plt[i].colour,
-          label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
+  for i = 1:length(pltdata)
+    if pltdata[i].yuerr ≠ nothing && pltdata[i].marker == "None"
+      p = ax.plot(pltdata[i].x, pltdata[i].y, lw = pltdata[i].lw,
+          dashes=pltdata[i].dashes, color=pltdata[i].colour, label=pltdata[i].label)
+      pltdata[i].colour = p[1].get_color()
+      ax.fill_between(pltdata[i].x, pltdata[i].ylerr, pltdata[i].yuerr,
+          color=pltdata[i].colour, alpha=0.2)
+    elseif pltdata[i].xuerr ≠ nothing && pltdata[i].yuerr ≠ nothing
+      if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
+        ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
+          yerr=[yerr[i].lower, yerr[i].upper], fmt=pltdata[i].marker, color=pltdata[i].colour,
+          label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       else
-        ax.errorbar(plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
-          yerr=[yerr[i].lower, yerr[i].upper], lw = plt[i].lw,
-          marker=plt[i].marker, dashes=plt[i].dashes, color=plt[i].colour,
-          label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
+        ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
+          yerr=[yerr[i].lower, yerr[i].upper], lw = pltdata[i].lw,
+          marker=pltdata[i].marker, dashes=pltdata[i].dashes, color=pltdata[i].colour,
+          label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
-    elseif plt[i].yuerr ≠ nothing
-      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax.errorbar(plt[i].x, plt[i].y, yerr=[yerr[i].lower, yerr[i].upper],
-          fmt=plt[i].marker, color=plt[i].colour, label=plt[i].label, capsize=3+offset,
-          alpha=plt[i].alpha)
+    elseif pltdata[i].yuerr ≠ nothing
+      if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
+        ax.errorbar(pltdata[i].x, pltdata[i].y, yerr=[yerr[i].lower, yerr[i].upper],
+          fmt=pltdata[i].marker, color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset,
+          alpha=pltdata[i].alpha)
       else
-        ax.errorbar(plt[i].x, plt[i].y, yerr=[yerr[i].lower, yerr[i].upper],
-          lw = plt[i].lw, marker=plt[i].marker, dashes=plt[i].dashes,
-          color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
+        ax.errorbar(pltdata[i].x, pltdata[i].y, yerr=[yerr[i].lower, yerr[i].upper],
+          lw = pltdata[i].lw, marker=pltdata[i].marker, dashes=pltdata[i].dashes,
+          color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
-    elseif plt[i].xuerr ≠ nothing
-      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax.errorbar(plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
-          lt= "None", marker=plt[i].marker,
-          color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
+    elseif pltdata[i].xuerr ≠ nothing
+      if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
+        ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
+          lt= "None", marker=pltdata[i].marker,
+          color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       else
-        ax[:errorbar](plt[i].x, plt[i].y, xerr=[xerr[i].lower, xerr[i].upper],
-          lw = plt[i].lw, marker=plt[i].marker, dashes=plt[i].dashes,
-          color=plt[i].colour, label=plt[i].label, capsize=3+offset, alpha=plt[i].alpha)
+        ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
+          lw = pltdata[i].lw, marker=pltdata[i].marker, dashes=pltdata[i].dashes,
+          color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
     else
-      if (!isempty(plt[i].dashes) && plt[i].dashes[1] == 0) || plt[i].dashes == "None"
-        ax.scatter(plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
-          color=plt[i].colour, label=plt[i].label, alpha=plt[i].alpha)
+      if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
+        ax.scatter(pltdata[i].x, pltdata[i].y,lw = pltdata[i].lw, marker=pltdata[i].marker,
+          color=pltdata[i].colour, label=pltdata[i].label, alpha=pltdata[i].alpha)
       else
-        ax.plot(plt[i].x, plt[i].y,lw = plt[i].lw, marker=plt[i].marker,
-          dashes=plt[i].dashes, color=plt[i].colour, label=plt[i].label,
-          alpha=plt[i].alpha)
+        ax.plot(pltdata[i].x, pltdata[i].y,lw = pltdata[i].lw, marker=pltdata[i].marker,
+          dashes=pltdata[i].dashes, color=pltdata[i].colour, label=pltdata[i].label,
+          alpha=pltdata[i].alpha)
       end
     end
   end
 
-  return plt, ax
+  return pltdata, ax
 end #function plt_DataWithErrors
 
 
 """
-    redef_err(plt,val,low,high)
+    redef_err(pltdata,val,low,high)
 
 Recalculate errors relative to actual values (rather than absolute values in plot)
 for use with error bars of markers. The function generates an array of DataFrames
 with the revised errors in the columns `:upper` and `:lower`.
-Data is generated from the array `plt` with the columns `val` with the measured/modelled
+Data is generated from the array `pltdata` with the columns `val` with the measured/modelled
 value and the columns with names `low` and `high` holding the
 actual error values (rather than values relative to measured/modelled value.)
 """
-function redef_err(plt,val,low,high)
+function redef_err(pltdata,val,low,high)
   err = []
-  for i = 1:length(plt)
+  for i = 1:length(pltdata)
     # Recalculate errors for error bars, if markers are plotted
-    if plt[i].marker ≠ "None" && getfield(plt[i],high) ≠ nothing
-      push!(err, DataFrame(upper = getfield(plt[i],high) .- getfield(plt[i],val),
-            lower = getfield(plt[i],val) .- getfield(plt[i],low)))
+    if pltdata[i].marker ≠ "None" && getfield(pltdata[i],high) ≠ nothing
+      push!(err, DataFrame(upper = getfield(pltdata[i],high) .- getfield(pltdata[i],val),
+            lower = getfield(pltdata[i],val) .- getfield(pltdata[i],low)))
     else
       # Otherwise, save errors as they are und column names `upper` and `lower`
       push!(err, DataFrame(upper = Float64[], lower = Float64[]))
@@ -1144,82 +1147,105 @@ end #function redef_err
 
 
 """
-    set_log(plt, ax, lims, logscale, x)
+    set_log(pltdata, ax, logscale, xlim, ylim)
 
-Set x- and/or y-axis to log scale, if the string `logscale` consists of `"x"` or
-`"y"` or `"xy"`. Adjust minimum/maximum values of the respective axis for logscale.
+Set x- and/or y-axis of `pltdata` to log scale for each `ax`, if the string
+`logscale` consists of `"x"` or `"y"` or `"xy"` for the corresponding axis.
+Adjust minimum/maximum values of the respective axis for logscale, if `xlim` or
+`ylim` are `nothing`.
 """
-function set_log(plt, ax, lims, logscale, x)
+function set_log(pltdata, ax, logscale, xlim, ylim)
 
-  val = Symbol(x); low = Symbol("$(x)lerr"); high = Symbol("$(x)uerr")
-  cmd1 = Symbol("set_$(x)lim"); cmd2 = Symbol("set_$(x)scale")
-  limits = []
-  for i = 1:length(lims)
-    if occursin(x,logscale[i])
-      mval = [getfield(n, val) for n in plt[i]]
-      if lims[i][1] == nothing
-        minerr = [getfield(n, low) for n in plt[i]]
-        minerr = minerr[minerr.≠nothing]
-        if !isempty(minerr)
-          minerr = minimum(minimum.(minerr))
-          xmin = min(minimum(minimum.(mval)), minerr)
-        else
-          xmin = minimum(minimum.(mval))
-        end
-        xmin = 10^floor(log10(minimum(xmin)))
-      else
-        xmin = lims[i][1]
+  xlimits = []; ylimits = []
+  len = length(logscale)
+  for i = 1:len
+    for char in logscale[i]
+      if lowercase(char) == 'x'
+        xlimits = find_limits(pltdata[i], "x", xlim[i], xlimits)
+        if length(logscale[i]) == 1  push!(ylimits, ylim[i])  end
+        ax[i].set_xscale("log")
       end
-      if lims[i][2] == nothing
-        maxerr = [getfield(n, high) for n in plt[i]]
-        maxerr = maxerr[maxerr.≠nothing]
-        if !isempty(maxerr)
-          maxerr = maximum(maximum.(maxerr))
-          xmax = max(maximum(maximum.(mval)), maxerr)
-        else
-          xmax = maximum(maximum.(mval))
-        end
-        xmax = 10^ceil(log10(maximum(xmax)))
-      else
-        xmax = lims[i][2]
+      if lowercase(char) == 'y'
+        ylimits = find_limits(pltdata[i], "y", ylim[i], ylimits)
+        if length(logscale[i]) == 1  push!(xlimits, xlim[i])  end
+        ax[i].set_yscale("log")
       end
-      push!(limits, [xmin, xmax])
-      ax[i][cmd1](limits[i])
-      ax[i][cmd2]("log")
-    else
-      push!(limits, lims[i])
+    end
+    if logscale[i] == ""
+      push!(xlimits, xlim[i]); push!(ylimits, ylim[i])
     end
   end
 
-  return ax, limits
+
+  return ax, xlimits, ylimits
 end #function set_log
 
 
 """
-function remove_log(plt, logremove::Union{String, Vector{String}}, logscale::Union{String, Vector{String}})
+    find_limits(pltdata, datacols, lims, limits)
+
+Set the axes `limits` to the minimum and maximum values for log plots in `pltdata`
+if `lims` contain `nothing`; `datacols` labels the axes that are logarithmic with
+`"x"`, `"y"` or `"xy"`.
+"""
+function find_limits(pltdata, datacols, lims, limits)
+  # Find log axes and corresponding errors
+  val = Symbol(datacols)
+  low = Symbol("$(datacols)lerr"); high = Symbol("$(datacols)uerr")
+  # Get data of log axes
+  coldata = [getfield(p, val) for p in pltdata]
+  # Revise minimum, if not pre-defined
+  if lims[1] == nothing
+    minerr = [getfield(p, low) for p in pltdata]
+    minerr = minerr[minerr.≠nothing]
+    isempty(minerr) ?
+      xmin = minimum(minimum.(coldata)) : xmin = minimum(minimum.(minerr))
+    xmin = 10^floor(log10(minimum(xmin)))
+  else
+    xmin = lims[1]
+  end
+  # Revise maximum, if not pre-defined
+  if lims[2] == nothing
+    maxerr = [getfield(p, high) for p in pltdata]
+    maxerr = maxerr[maxerr.≠nothing]
+    isempty(maxerr) ?
+      xmax = maximum(maximum.(coldata)) : xmax = maximum(maximum.(maxerr))
+    xmax = 10^ceil(log10(maximum(xmax)))
+  else
+    xmax = lims[2]
+  end
+
+  # Save and return revised limits
+  push!(limits, [xmin, xmax])
+  return limits
+end
+
+
+"""
+function remove_log(pltdata, logremove::Union{String, Vector{String}}, logscale::Union{String, Vector{String}})
 
 Depending on the keyword of `logremove`, set all positive or negative values to
-zero in PlotData `plt`, if `logscale` is set.
+zero in PlotData `pltdata`, if `logscale` is set.
 """
-function remove_log(plt, logremove::Union{String, Vector{String}},
+function remove_log(pltdata, logremove::Union{String, Vector{String}},
   logscale::Union{String, Vector{String}})
 
-  for i = 1:length(plt)
+  for i = 1:length(pltdata)
     if logremove[i] == "pos" && occursin("x", logscale[i])
-      plt[i] = rm_log(plt[i], "x", >)
+      pltdata[i] = rm_log(pltdata[i], "x", >)
     end
     if logremove[i] == "pos" && occursin("y", logscale[i])
-      plt[i] = rm_log(plt[i], "y", >)
+      pltdata[i] = rm_log(pltdata[i], "y", >)
     end
     if logremove[i] == "neg" && occursin("x", logscale[i])
-      plt[i] = rm_log(plt[i], "x", <)
+      pltdata[i] = rm_log(pltdata[i], "x", <)
     end
     if logremove[i] == "neg" && occursin("y", logscale[i])
-      plt[i] = rm_log(plt[i], "y", <)
+      pltdata[i] = rm_log(pltdata[i], "y", <)
     end
   end
 
-  return plt
+  return pltdata
 end #function remove_log
 
 

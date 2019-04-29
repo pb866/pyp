@@ -2,7 +2,7 @@ name = "pyp"
 uuid = "1f59166c-d923-11e8-01b9-e713fdda0351"
 authors = ["Peter Bräuer <pb866@york.ac.uk>"]
 julia = "≥0.7"
-version = "0.4.0"
+version = "0.4.1"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -12,4 +12,5 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 OhMyREPL = "5fb14364-9ced-5910-84b2-373655c76a03"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 filehandling = "4b8ed5e0-8069-11e8-094b-3f5425e6acdd"
