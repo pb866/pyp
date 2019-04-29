@@ -221,6 +221,14 @@ Returns a single value or array of values in the order `lc`, `lt`, `pt`
 Version history
 ===============
 
+Version 0.4.1
+-------------
+- Bugfixes and updates
+- Revise function `set_log` to use new `PyPlot` format `ax.o` rather than `ax[:o]`
+- Prefer PyPlot import as `plt` over `using`
+- Further internal updates of function `plot_data`
+- Correct legends of twin axes plots to show legends on top of all data sets of both axes
+
 Version 0.4.0
 -------------
 - Update to new `PyPlot` syntax using `object.method` instead of `object[:method]`
