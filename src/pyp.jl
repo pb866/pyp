@@ -41,6 +41,7 @@ import PyPlot; const plt = PyPlot
 import Parameters; const par = Parameters
 import DataFrames; const df = DataFrames
 import DataFrames.DataFrame
+import Statistics; const stats = Statistics
 import LinearAlgebra.⋅
 
 
@@ -53,16 +54,15 @@ export load_PlotData,
 
 ### NEW TYPES
 par.@with_kw mutable struct PlotData
-  x::Union{Vector{Int64},Vector{Float64},Vector{Dates.DateTime}}
-  y::Union{Vector{Int64},Vector{Float64}}
-  xuerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
-  xlerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
-  yuerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
-  ylerr::Union{Nothing,Vector{Int64},Vector{Float64}}=nothing
-  label::Union{Nothing,AbstractString}=""
+  x::Union{Vector{Dates.DateTime}, Vector{T}} where T=Number
+  y::Vector{T} where T=Number
+  xuerr::Union{Nothing,Vector{T}} where T=Number = nothing
+  xlerr::Union{Nothing,Vector{T}} where T=Number = nothing
+  yuerr::Union{Nothing,Vector{T}} where T=Number = nothing
+  ylerr::Union{Nothing,Vector{T}} where T=Number = nothing
+  label::AbstractString=""
   marker::Union{AbstractString,Int64}="None"
-  dashes::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},
-    Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[]
+  dashes::Union{Tuple{Number,Number},Vector{T}} where T=Number = Float64[]
   colour::Union{Nothing,AbstractString}=nothing
   lw::Number=1.4
   alpha::Number=1
@@ -111,9 +111,9 @@ as well as formatting parameters into a new DataType `PlotData`.
 """
 function load_PlotData(plotdata::DataFrame;  err::String="None",
          pt::Union{AbstractString,Int64}="None",
-         lt::Union{Tuple{Float64,Float64},Tuple{Int64,Int64},Vector{Float64},Vector{Int64},Vector{Any},String}=Float64[],
+         lt::Union{Tuple{Number,Number},Vector{T}} where T=Number = Float64[],
          lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
-         label::String="", alpha::Number=1, select_cols::Vector{Symbol}=Symbol[])
+         label::AbstractString="", alpha::Number=1, select_cols::Vector{Symbol}=Symbol[])
 
   # Make copy of plotdata that can be altered
   pltdata = deepcopy(plotdata)
@@ -263,25 +263,26 @@ Keyword arguments for `function plot_data` are:
   - **default:** `1`
 """
 function plot_data(plot_list::PlotData...;
-                  xlabel::Union{String, LaTeXString}="model time / hours",
-                  ylabel::Union{String, LaTeXString, Vector{String}, Vector{LaTeXString}}=
+                  xlabel::AbstractString="model time / hours",
+                  ylabel::Union{AbstractString, Vector{T}} where T=AbstractString =
                   "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-                  ti::Union{String, LaTeXString}="", twinax::Vector{Int64}=Int64[],
+                  ti::AbstractString="", twinax::Vector{Int64}=Int64[],
                   logscale::Union{String, Vector{String}}="", logremove = "neg",
                   plot_type::String="default", cs::Union{String, Vector{String}}="",
                   lt="default", pt="default", lc::Union{String, Vector{String}}="default",
                   alpha::Number=-1, xlims=nothing, ylims=nothing, mticks::String="on",
-                  min_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
-                  min_yticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
-                  maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
-                  maj_yticks::Union{Number,Vector{Int64},Vector{Float64}}=0,
+                  min_xticks::Union{Number,Vector{T}} where T=Number = 0,
+                  min_yticks::Union{Number,Vector{T}} where T=Number = 0,
+                  maj_xticks::Union{Number,Vector{T}} where T=Number = 0,
+                  maj_yticks::Union{Number,Vector{T}} where T=Number = 0,
                   figsize::Tuple{Number,Number}=(6,4), fontsize::Number=12,
                   framewidth::Number=1, ticksize::Tuple{Number,Number}=(4.5,2.5),
                   cap_offset::Number=0, ti_offset::Number=4, ax_offset::Number=2,
-                  leg_offset::Number=0, legpos::Union{String, Int64}="best",
-                  legcolumns::Int64=1, axcolour::Union{String,Vector{String}}="black",
+                  leg_offset::Number=0, legcolumns::Int64=1,
+                  legpos::Union{String, Int64, Tuple{Real, Real}}="best",
+                  axcolour::Union{String,Vector{String}}="black",
                   # Aliases:
-                  title::Union{String, LaTeXString}="",
+                  title::AbstractString="",
                   colorscheme::Union{String, Vector{String}}="",
                   colourscheme::Union{String, Vector{String}}="",
                   linestyle="default", linetype="default",
@@ -322,7 +323,7 @@ function plot_data(plot_list::PlotData...;
     a.set_xlim(xlimit[i]); a.set_ylim(ylimit[i])
   end
 
-  # Set plot title
+  #= Set plot title
   ax[1].set_title(ti, fontsize=fontsize+ti_offset)
 
   # Generate axes labels and legend, define axes label/tick colours
@@ -331,7 +332,7 @@ function plot_data(plot_list::PlotData...;
     ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
   end
   [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
-
+  =#
   if length(ax) > 1
     pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
     plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
@@ -341,9 +342,11 @@ function plot_data(plot_list::PlotData...;
   elseif legpos ≠ "None" && any([p.label≠"" for p in pltdata[1]])
     ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
   end
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel, fontsize,
+    axcolour, ti_offset, ax_offset, maj_xticks, maj_yticks, min_xticks, min_yticks,
+    mticks, ticksize, framewidth)
 
-
-  # Set ticks and optional minor ticks
+  #= Set ticks and optional minor ticks
   if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
     xint = collect(ax[1].get_xlim()[1]:maj_xticks:ax[1].get_xlim()[2])
     for i = 1:length(pltdata)  ax[i].set_xticks(xint)  end
@@ -407,7 +410,7 @@ function plot_data(plot_list::PlotData...;
     end
   end
   fig.tight_layout()
-
+  =#
   # Add nothing to ax in case 2nd axis is missing
   push!(ax, nothing)
 
@@ -1408,5 +1411,91 @@ function draw_boundaries(alpha,xdata,ydata,colours,lt,ax)
 
   return ax
 end
-=#
+
+
+"""
+
+
+"""
+function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, fontsize,
+  axcolour, ti_offset, ax_offset, maj_xticks, maj_yticks, min_xticks, min_yticks,
+  mticks, ticksize, framewidth)
+  # Set plot title
+  ax[1].set_title(ti, fontsize=fontsize+ti_offset)
+
+  # Generate axes labels and legend, define axes label/tick colours
+  ax[1].set_xlabel(xlabel,fontsize=fontsize+ax_offset)
+  for n = 1:length(ylabel)
+    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
+  end
+  [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
+
+  # Set ticks and optional minor ticks
+  if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
+    xint = collect(ax[1].get_xlim()[1]:maj_xticks:ax[1].get_xlim()[2])
+    for i = 1:length(pltdata)  ax[i].set_xticks(xint)  end
+  end  end
+  if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
+    yint = collect(ax[i].get_ylim()[1]:maj_yticks[i]:ax[i].get_ylim()[2])
+    ax[i].set_yticks(yint)
+  end  end
+  if mticks == "on"
+    plt.minorticks_on()
+  else
+    plt.minorticks_off()
+  end
+  # Set minor x ticks
+  if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
+    if min_xticks > 0
+      mx = plt.matplotlib.ticker.MultipleLocator(min_xticks)
+      for i = 1:length(pltdata)
+        ax[i].xaxis.set_minor_locator(mx)
+      end
+    end
+  elseif min_xticks isa Number
+    min_xticks = [6,12,18]
+  end
+  # Set minor y ticks
+  for i = 1:length(min_yticks)
+    if min_yticks[i] > 0
+      my = plt.matplotlib.ticker.MultipleLocator(min_yticks[i])
+      ax[i].yaxis.set_minor_locator(my)
+    end
+  end
+  # Format ticks and frame
+  Mtlen = ticksize[1]⋅framewidth
+  mtlen = ticksize[2]⋅framewidth
+  for i = 1:length(plot_list)
+    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
+      labelsize=fontsize, width=framewidth)
+    ax[i].grid(linestyle=":", linewidth = framewidth)
+    ax[i].spines["bottom"].set_linewidth(framewidth)
+    ax[i].spines["top"].set_linewidth(framewidth)
+    ax[i].spines["left"].set_linewidth(framewidth)
+    ax[i].spines["right"].set_linewidth(framewidth)
+    if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
+      ax[i].tick_params("both", which="major", length=Mtlen)
+      ax[i].tick_params("both", which="minor", length=mtlen)
+    else
+      ax[i].set_xlim(xmin=plot_list[1][1].x[1], xmax=plot_list[1][1].x[end])
+      if maj_xticks isa Vector
+        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b, %H:%M")
+      else
+        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b")
+      end
+      minorformatter = plt.matplotlib.dates.DateFormatter("")
+      majorlocator = plt.matplotlib.dates.HourLocator(byhour=maj_xticks)
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=min_xticks)
+      ax[i].xaxis.set_major_formatter(majorformatter)
+      ax[i].xaxis.set_minor_formatter(minorformatter)
+      ax[i].xaxis.set_major_locator(majorlocator)
+      ax[i].xaxis.set_minor_locator(minorlocator)
+      fig.autofmt_xdate(bottom=0.2,rotation=-30,ha="left")
+    end
+  end
+  fig.tight_layout()
+
+  return fig, ax
+end #function format_axes_and_annotations
+
 end #module pyp
