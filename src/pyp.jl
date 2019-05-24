@@ -1,11 +1,11 @@
 """
 # Module pyp
 
-Load data and plot with PyPlot.
+Plot data with PyPlot as line, scatter or mixed plots with optional errors
+as well as stacked area plots.
 
 
 # Data structures
-
 - PlotData
 
 
@@ -24,15 +24,21 @@ Load data and plot with PyPlot.
 - set_style
 - plt_DataWithErrors
 - redef_err
-- set_log
+- set_axes
 - find_limits
-- logBounds
-- set_log2
+- setup_log
+- rm_log
+- checkaliases
+- checkalias
+- get_stack
+- format_stack
+- print_stack
+- format_axes_and_annotations
 """
 module pyp
 
 # Track changes during development
-# using Revise
+using Revise
 
 ###  Load Julia packages  ###
 using LaTeXStrings
@@ -48,24 +54,43 @@ import LinearAlgebra.⋅
 # Export public functions
 export load_PlotData,
        plot_data,
-       # plot_stack,
+       plot_stack,
        sel_ls,
        PlotData
 
 ### NEW TYPES
+"""
+    par.@with_kw mutable struct PlotData
+
+Mutable struct holding information of individual graphs in a plot
+that can be addressed with keyword arguments for the following fields:
+- `x`/`y`: x/y data for plotting, x/y must be vectors of `Real`s (or `DateTime`s for x)
+  of same length
+- `xlerr`/`xuerr`/`ylerr`/`yuerr`: upper and lower errors for x and y data,
+  must either be `nothing` or vector of `Real`s of same length as `x`/`y`
+  (default: `nothing`)
+- `label`: `AbstractString` with label for legend (default: `""` – empty String, no entry)
+- `marker`: `String` or `Int64` specifying `PyPlot` marker type (default: `"None"` – no markers)
+- `dashes`: tuple or vector of `Real`s specifying an 'on-off' sequence for line types
+  (default: `[]` – empty array = solid lines); use `"None"` for no lines
+- `colour`: `String` or `Symbol` with `PyPlot` colour name or String with RGB code
+  (default: `nothing` – use `PyPlot` default colours)
+- `lw`: `Real` to specify linewidth
+- `alpha`: `Real` to specify opaqueness
+"""
 par.@with_kw mutable struct PlotData
-  x::Union{Vector{Dates.DateTime}, Vector{T}} where T=Number
-  y::Vector{T} where T=Number
-  xuerr::Union{Nothing,Vector{T}} where T=Number = nothing
-  xlerr::Union{Nothing,Vector{T}} where T=Number = nothing
-  yuerr::Union{Nothing,Vector{T}} where T=Number = nothing
-  ylerr::Union{Nothing,Vector{T}} where T=Number = nothing
+  x::Union{Vector{Dates.DateTime}, Vector{T} where T<:Real}
+  y::Vector{T} where T<:Real
+  xuerr::Union{Nothing,Vector{T} where T<:Real}=nothing
+  xlerr::Union{Nothing,Vector{T} where T<:Real}=nothing
+  yuerr::Union{Nothing,Vector{T} where T<:Real}=nothing
+  ylerr::Union{Nothing,Vector{T} where T<:Real}=nothing
   label::AbstractString=""
-  marker::Union{AbstractString,Int64}="None"
-  dashes::Union{Tuple{Number,Number},Vector{T}} where T=Number = Float64[]
-  colour::Union{Nothing,AbstractString}=nothing
-  lw::Number=1.4
-  alpha::Number=1
+  marker::Union{String,Int64}="None"
+  dashes::Union{Tuple{Real,Real},Vector{T} where T<:Real}=[]
+  colour::Union{Nothing,String,Symbol}=nothing
+  lw::Real=1.4
+  alpha::Real=1
 end
 
 
@@ -75,13 +100,13 @@ end
 
 
 """
-    load_PlotData(pltdata::DataFrames.DataFrame;  \\*\\*kwargs)
+    load_PlotData(pltdata::DataFrames.DataFrame;  kwargs...) -> PlotData
 
 Pack x and y data with possible assoiciated errors from DataFrame `pltdata`
-as well as formatting parameters into a new DataType `PlotData`.
+as well as formatting parameters into a new DataType `PlotData` for `PyPlot` plotting.
 
 
-### \\*\\*kwargs
+### kwargs...
 
 + `err` (`String`):
   - `"None"` (no errors, **default**)
@@ -98,22 +123,23 @@ as well as formatting parameters into a new DataType `PlotData`.
   on/off PyPlot dash definitions
   - empty array means a solid line (**default**)
   - Tuple with 2 entries or array with 4 entries where odd entries are `0` suppresses lines
-+ `lc` (`Union{Nothing,AbstractString}`) PyPlot line/marker colours (**default:** `nothing` –
-  use PyPlot default colours), see e.g. https://matplotlib.org/examples/color/named_colors.html
-+ `lw` (`Number`): linewidth (**default:** `1.4`)
-+ `SF` (`Number`): scaling factor of y data and associated errors (**default:** `1`, no scaling)
-+ `label` (`String`): Label for legend
++ `lc` (`Union{Tuple{Real,Real},Vector{T}} where T=Real`) PyPlot line/marker colours
+  (**default:** `nothing` – use PyPlot default colours), see e.g.
+  https://matplotlib.org/examples/color/named_colors.html
++ `lw` (`Real`): linewidth (**default:** `1.4`)
++ `SF` (`Real`): scaling factor of y data and associated errors (**default:** `1`, no scaling)
++ `label` (`AbstractString`): Label for legend
   - `""` (empty string, **default**): no legend label
 + `select_cols` (`Vector{Symbol}`):
   - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`)
-  - `Array{Symbol, 1}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
+  - `Vector{Symbol}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
-function load_PlotData(plotdata::DataFrame;  err::String="None",
+function load_PlotData(plotdata::DataFrame; err::String="None",
          pt::Union{AbstractString,Int64}="None",
-         lt::Union{Tuple{Number,Number},Vector{T}} where T=Number = Float64[],
-         lc::Union{Nothing,AbstractString}=nothing, lw::Number=1.4, SF::Number=1,
-         label::AbstractString="", alpha::Number=1, select_cols::Vector{Symbol}=Symbol[])
+         lt::Union{Tuple{Real,Real},Vector{T} where T<:Real} = Int64[],
+         lc::Union{Nothing,String,Symbol}=nothing, lw::Real=1.4, SF::Real=1,
+         label::AbstractString="", alpha::Real=1, select_cols::Vector{Symbol}=Symbol[])
 
   # Make copy of plotdata that can be altered
   pltdata = deepcopy(plotdata)
@@ -159,12 +185,13 @@ end #function load_PlotData
 
 
 """
-    plot_data(plot_list::PlotData..., \\*\\*kwargs)
+    plot_data(plot_list::PlotData...; kwargs...) -> fig, ax1[, ax2]
 
-Generate scatter and/or line plots from the varargs `plot_data` of Type `PlotData`.
+Generate plots with scatter and/or line data from the varargs `plot_data` of Type `PlotData`
+and return `PyPlot` figure and axes data for further plot formatting.
 
 
-### \\*\\*kwargs
+### kwargs...
 
 For all arguments concerning y data the following applies:
 - The dataset can be split into 2 subsets and a 2. y-axis with a different scale
@@ -176,11 +203,11 @@ For all arguments concerning y data the following applies:
   is defined, then this parameter applies to both axes
 
 Keyword arguments for `function plot_data` are:
-+ `xlabel` (`Union{String, LaTeXString}`): x axis label
++ `xlabel` (`AbstractString`): x axis label
   - **default:** `"model time / hours"`
-+ `ylabel` (`Union{String, LaTeXString, Array{String,1}, Array{LaTeXString,1}}`):
++ `ylabel` (`Union{AbstractString, Vector{T}} where T=AbstractString`):
   y axis label, `Array` can be used, if a second axis with a different label is introduced
-  - **default:** `"concentration / mlc cm\$cd^{-3}\$ s\$^{-1}\$"`
+  - **default:** `"concentration / mlc cm\$^{-3}\$ s\$^{-1}\$"`
 + `ti` (`Union{String, LaTeXString}`): Plot title
   - **default:** `""` (empty string) for no title
   - **keyword aliases:** `title`
@@ -217,26 +244,26 @@ Keyword arguments for `function plot_data` are:
   - String or integer keyword for markers from PyPlot
   - **keyword aliases:** `mt`, `marker`
 + `alpha`: if alpha is set to a value `> 0` then all graphs will be displayed with this transparency value
-+ `mticks` (`String`): Switch minor ticks on/off (**default:** "on")
-+ `min_xticks` (`Union{Number,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
++ `mticks` (`Bool`): Switch minor ticks on/off (**default:** `true`)
++ `min_xticks` (`Union{Real,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
 + `min_yticks` (`Union{Int64, Array{Int64,1}}`):Size of interval between minor y ticks
   - `0` (**default**): automatic determination by PyPlot
   - If 2. y axis is defined, an array can be used to used different specifications for each axis
-+ `maj_xticks`/`maj_yticks` (`Union{Number,Vector{Int64},Vector{Float64}}`/`Number`)
++ `maj_xticks`/`maj_yticks` (`Union{Real,Vector{Int64},Vector{Float64}}`/`Real`)
   interval size of major ticks in x- and y-axis, respectively; asign different intervals
   to 2nd y-axis using an array of integers
 + `xlims`/`ylims`: Tuple of minimum/maximum value for each axis
   - `nothing` may be used for default PyPlot values (**default**)
   - `nothing` may be used for one value within the tuple to use the default, e.g. `ylims = (0, nothing)`
   - if 2. y-axis is defined, `ylims` may be an array of tuples with different specifications
-+ `figsiz` (`Tuple{Number,Number}`): figure size width × height in inches
++ `figsiz` (`Tuple{Real,Real}`): figure size width × height in inches
   (**default:** `(6,4)`)
-+ `fntsiz` (`Number`): default font size (**default:** `12`)
-+ `framewidth` (`Number`): default line width of outer axes frame (**default:** `1`)
-+ `ticksize` (`Tuple{Number,Number}`): Tuple with scaling factors for length of major
++ `fntsiz` (`Real`): default font size (**default:** `12`)
++ `framewidth` (`Real`): default line width of outer axes frame (**default:** `1`)
++ `ticksize` (`Tuple{Real,Real}`): Tuple with scaling factors for length of major
   (first tuple entry) and minor (second tuple entry) ticks in relation to their
   width (**default:** `(4.5,2.5)`)
-+ `cap_offset` (`Number`): deviation from default cap size of `3` of marker error bars
++ `cap_offset` (`Real`): deviation from default cap size of `3` of marker error bars
   (**default:** `0`)
 + `ti_offset`, `ax_offset`, `leg_offset`: Offsets for fontsizes of title, axes
   labels, and legend, respectively, from default sizes. Numbers
@@ -264,33 +291,35 @@ Keyword arguments for `function plot_data` are:
 """
 function plot_data(plot_list::PlotData...;
                   xlabel::AbstractString="model time / hours",
-                  ylabel::Union{AbstractString, Vector{T}} where T=AbstractString =
+                  ylabel::Union{AbstractString, Vector{T} where T<:AbstractString} =
                   "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-                  ti::AbstractString="", twinax::Vector{Int64}=Int64[],
-                  logscale::Union{String, Vector{String}}="", logremove = "neg",
-                  plot_type::String="default", cs::Union{String, Vector{String}}="",
-                  lt="default", pt="default", lc::Union{String, Vector{String}}="default",
-                  alpha::Number=-1, xlims=nothing, ylims=nothing, mticks::String="on",
-                  min_xticks::Union{Number,Vector{T}} where T=Number = 0,
-                  min_yticks::Union{Number,Vector{T}} where T=Number = 0,
-                  maj_xticks::Union{Number,Vector{T}} where T=Number = 0,
-                  maj_yticks::Union{Number,Vector{T}} where T=Number = 0,
-                  figsize::Tuple{Number,Number}=(6,4), fontsize::Number=12,
-                  framewidth::Number=1, ticksize::Tuple{Number,Number}=(4.5,2.5),
-                  cap_offset::Number=0, ti_offset::Number=4, ax_offset::Number=2,
-                  leg_offset::Number=0, legcolumns::Int64=1,
+                  ti::AbstractString="", twinax::Vector{T} where T<:Integer=Int64[],
+                  logscale::Union{String,Vector{T} where T<:String}="",
+                  logremove::Union{String,Vector{T} where T<:String}="neg",
+                  plot_type::String="default", cs::Union{String,Vector{T} where T<:String}="",
+                  lt="default", pt="default",
+                  lc::Union{String,Symbol, Vector{T} where T<:String, Vector{T} where T<:Symbol}="default",
+                  alpha::Real=-1, xlims=nothing, ylims=nothing, mticks::Bool=true,
+                  min_xticks::Union{Real,Vector{T} where T<:Real}=0,
+                  min_yticks::Union{Real,Vector{T} where T<:Real}=0,
+                  maj_xticks::Union{Real,Vector{T} where T<:Real}=0,
+                  maj_yticks::Union{Real,Vector{T} where T<:Real}=0,
+                  figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12,
+                  framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5),
+                  cap_offset::Real=0, ti_offset::Real=4, ax_offset::Real=2,
+                  leg_offset::Real=0, legcolumns::Int64=1,
                   legpos::Union{String, Int64, Tuple{Real, Real}}="best",
-                  axcolour::Union{String,Vector{String}}="black",
+                  axcolour::Union{String, Vector{T} where T<:String}="black",
                   # Aliases:
                   title::AbstractString="",
-                  colorscheme::Union{String, Vector{String}}="",
-                  colourscheme::Union{String, Vector{String}}="",
+                  colorscheme::Union{String, Vector{T} where T<:String}="",
+                  colourscheme::Union{String, Vector{T} where T<:String}="",
                   linestyle="default", linetype="default",
                   dashes="default", mt="default", marker="default",
-                  linecolor::Union{String, Vector{String}}="default",
-                  linecolour::Union{String, Vector{String}}="default",
-                  color::Union{String, Vector{String}}="default",
-                  colour::Union{String, Vector{String}}="default",
+                  linecolor::Union{String, Vector{T} where T<:String}="default",
+                  linecolour::Union{String, Vector{T} where T<:String}="default",
+                  color::Union{String, Vector{T} where T<:String}="default",
+                  colour::Union{String, Vector{T} where T<:String}="default",
                   legloc::Union{String, Int64}="best", loc::Union{String, Int64}="best")
 
   # Check kwarg aliases as set all to the same value
@@ -305,9 +334,9 @@ function plot_data(plot_list::PlotData...;
     maj_yticks, min_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
 
   # Ensure strictly positive or negative values for log plots
-  pltdata = remove_log(pltdata, logremove, logscale)
+  pltdata = setup_log(pltdata, logremove, logscale)
 
-  # set colour scheme
+  # set colour scheme and line/marker types
   pltdata = set_style(pltdata, plot_type, cs, lc, lt, pt)
 
   # Plot data and associated errors
@@ -315,110 +344,23 @@ function plot_data(plot_list::PlotData...;
     pltdata[i], ax[i] = plt_DataWithErrors(pltdata[i], ax[i], cap_offset)
   end
 
-  # Define logscales
-  ax, xlimit, ylimit = set_log(pltdata, ax, logscale, xlimit, ylimit)
+  # Define logscales and set axes limits
+  ax = set_axes(pltdata, ax, logscale, xlimit, ylimit)
 
-  # Set axes limits
-  for (i, a) in enumerate(ax)
-    a.set_xlim(xlimit[i]); a.set_ylim(ylimit[i])
-  end
 
-  #= Set plot title
-  ax[1].set_title(ti, fontsize=fontsize+ti_offset)
+  # Format plot
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel,
+    fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, ax_offset,
+    maj_xticks, maj_yticks, min_xticks, min_yticks, mticks, ticksize, framewidth)
 
-  # Generate axes labels and legend, define axes label/tick colours
-  ax[1].set_xlabel(xlabel,fontsize=fontsize+ax_offset)
-  for n = 1:length(ylabel)
-    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
-  end
-  [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
-  =#
-  if length(ax) > 1
-    pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
-    plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
-    if any(plab .≠ "") && legpos ≠ "None"
-      ax[2].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
-    end
-  elseif legpos ≠ "None" && any([p.label≠"" for p in pltdata[1]])
-    ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
-  end
-  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel, fontsize,
-    axcolour, ti_offset, ax_offset, maj_xticks, maj_yticks, min_xticks, min_yticks,
-    mticks, ticksize, framewidth)
-
-  #= Set ticks and optional minor ticks
-  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
-    xint = collect(ax[1].get_xlim()[1]:maj_xticks:ax[1].get_xlim()[2])
-    for i = 1:length(pltdata)  ax[i].set_xticks(xint)  end
-  end  end
-  if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
-    yint = collect(ax[i].get_ylim()[1]:maj_yticks[i]:ax[i].get_ylim()[2])
-    ax[i].set_yticks(yint)
-  end  end
-  if mticks == "on"
-    plt.minorticks_on()
-  else
-    plt.minorticks_off()
-  end
-  # Set minor x ticks
-  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
-    if min_xticks > 0
-      mx = plt.matplotlib.ticker.MultipleLocator(min_xticks)
-      for i = 1:length(pltdata)
-        ax[i].xaxis.set_minor_locator(mx)
-      end
-    end
-  elseif min_xticks isa Number
-    min_xticks = [6,12,18]
-  end
-  # Set minor y ticks
-  for i = 1:length(min_yticks)
-    if min_yticks[i] > 0
-      my = plt.matplotlib.ticker.MultipleLocator(min_yticks[i])
-      ax[i].yaxis.set_minor_locator(my)
-    end
-  end
-  # Format ticks and frame
-  Mtlen = ticksize[1]⋅framewidth
-  mtlen = ticksize[2]⋅framewidth
-  for i = 1:length(pltdata)
-    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
-      labelsize=fontsize, width=framewidth)
-    ax[i].grid(linestyle=":", linewidth = framewidth)
-    ax[i].spines["bottom"].set_linewidth(framewidth)
-    ax[i].spines["top"].set_linewidth(framewidth)
-    ax[i].spines["left"].set_linewidth(framewidth)
-    ax[i].spines["right"].set_linewidth(framewidth)
-    if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
-      ax[i].tick_params("both", which="major", length=Mtlen)
-      ax[i].tick_params("both", which="minor", length=mtlen)
-    else
-      ax[i].set_xlim(xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
-      if maj_xticks isa Vector
-        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b, %H:%M")
-      else
-        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b")
-      end
-      minorformatter = plt.matplotlib.dates.DateFormatter("")
-      majorlocator = plt.matplotlib.dates.HourLocator(byhour=maj_xticks)
-      minorlocator = plt.matplotlib.dates.HourLocator(byhour=min_xticks)
-      ax[i].xaxis.set_major_formatter(majorformatter)
-      ax[i].xaxis.set_minor_formatter(minorformatter)
-      ax[i].xaxis.set_major_locator(majorlocator)
-      ax[i].xaxis.set_minor_locator(minorlocator)
-      fig.autofmt_xdate(bottom=0.2,rotation=-30,ha="left")
-    end
-  end
-  fig.tight_layout()
-  =#
   # Add nothing to ax in case 2nd axis is missing
-  push!(ax, nothing)
+  if length(ax) < 2  push!(ax, nothing)  end
 
   # Return PyPlot data
   return fig, ax[1], ax[2]
 end #function plot_data
 
-#=
+
 """
     plot_stack(plot_list::Union{PlotData,pyp.PlotData}...; \\*\\*kwargs)
 
@@ -433,8 +375,8 @@ keyword arguments are possible.
   - **default:** `"concentration / mlc cm\$^{-3}\$ s\$^{-1}\$"`
 + `ti` (`String`): Plot title
   - **default:** `""` (empty string) for no title
-+ `boundaries` (`Number`): transparency value for boundary lines of each stack data (`0` **default** for no boundaries)
-+ `alpha`: (`Number`): set transparency of areas of each stack data
++ `boundaries` (`Real`): transparency value for boundary lines of each stack data (`0` **default** for no boundaries)
++ `alpha`: (`Real`): set transparency of areas of each stack data
   - `0` (**default**): Use transparency setting of the original `PlotData`
   - `1`: no transparency
 + `logscale` (`String`): use `"x"`, `"y"` or `"xy"` to set either x-, y- or both axes to a logarithmic scale
@@ -454,17 +396,17 @@ keyword arguments are possible.
 + `xlims`/`ylims`: Tuple of minimum/maximum value for each axis
   - `nothing` may be used for default PyPlot values (**default**)
   - `nothing` may be used for one value within the tuple to use the default, e.g. `ylims = (0, nothing)`
-+ `mticks` (`String`): Switch minor ticks on/off (**default:** "on")
-+ `min_xticks` (`Union{Number,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks
++ `mticks` (`Bool`): Switch minor ticks on/off (**default:** true)
++ `min_xticks` (`Union{Real,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks
   (**default:** `0` – automatic determination by PyPlot)
-+ `min_yticks` (`Number`): Size of interval between minor y ticks
++ `min_yticks` (`Real`): Size of interval between minor y ticks
   - `0` (**default**): automatic determination by PyPlot
-+ `maj_xticks`/`maj_yticks` (`Union{Number,Vector{Int64},Vector{Float64}}`/`Number`) interval size of major ticks in x- and y-axis, respectively;
-+ `figsiz` (`Tuple{Number,Number}`): figure size width × height in inches
++ `maj_xticks`/`maj_yticks` (`Union{Real,Vector{Int64},Vector{Float64}}`/`Real`) interval size of major ticks in x- and y-axis, respectively;
++ `figsiz` (`Tuple{Real,Real}`): figure size width × height in inches
   (**default:** `(6,4)`)
-+ `fntsiz` (`Number`): default font size (**default:** `12`)
-+ `framewidth` (`Number`): default line width of outer axes frame (**default:** `1`)
-+ `ticksize` (`Tuple{Number,Number}`): Tuple with scaling factors for length of major
++ `fntsiz` (`Real`): default font size (**default:** `12`)
++ `framewidth` (`Real`): default line width of outer axes frame (**default:** `1`)
++ `ticksize` (`Tuple{Real,Real}`): Tuple with scaling factors for length of major
   (first tuple entry) and minor (second tuple entry) ticks in relation to their
   width (**default:** `(4.5,2.5)`)
 + `ti_offset`, `ax_offset`, `leg_offset`: Offsets for fontsizes of title, axes
@@ -487,158 +429,46 @@ keyword arguments are possible.
 - `legcolumns` (`Union{Int64, Array{Int64,1}}`): number of legend columns
   (**default:** `1`)
 """
-function plot_stack(plot_list::Union{PlotData,pyp.PlotData}...;
-         xlabel::Union{String, LaTeXString}="model time / hours",
-         ylabel::Union{String, LaTeXString}=
-         "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-         ti::String="", boundaries::Number=0,
-         logscale::String="", cs::String="", lt=[], lc=[],
-         alpha::Number=0, xlims=nothing, ylims=nothing, mticks::String="on",
-         min_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0, min_yticks::Number=0,
-         maj_xticks::Union{Number,Vector{Int64},Vector{Float64}}=0, maj_yticks::Number=0,
-         figsiz::Tuple{Number,Number}=(6,4), fntsiz::Number=12, framewidth::Number=1,
-         ticksize::Tuple{Number,Number}=(4.5,2.5), ti_offset::Number=4,
-         ax_offset::Number=2, leg_offset::Number=0,
-         legpos::Union{String, Int64}="best", legcolumns::Int64=1)
+function plot_stack(plot_list::PlotData...;
+         xlabel::AbstractString="model time / hours",
+         ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
+         ti::AbstractString="", boundaries=0,
+         logscale::String="", logremove::String="neg",
+         cs::String="", lt=[], lc=[], alpha::Real=0,
+         xlims=nothing, ylims=nothing, mticks::Bool=true,
+         min_xticks::Real = 0,
+         min_yticks::Real = 0,
+         maj_xticks::Real = 0,
+         maj_yticks::Real = 0,
+         figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
+         ticksize::Tuple{Real,Real}=(4.5,2.5), ti_offset::Real=4,
+         ax_offset::Real=2, leg_offset::Real=0, legcolumns::Int64=1,
+         legpos::Union{String, Int64, Tuple{Real, Real}}="best")
 
-  # Start plot
-  fig, ax = subplots(figsize=figsiz)
+  # Get x and y data
+  xdata, ystack, ylines, labels = get_stack(plot_list...)
 
-  # set colour scheme
+  # Format plot, set colour scheme
+  colour, linetype, α = format_stack(cs, alpha, lc, lt, plot_list...)
 
-  # Plot data
-  xdata = plot_list[1].x; ystack = []; α = []
-  for data in plot_list
-    if data.x ≠ xdata
-      println("Warning! X data in $(data.label) differs from x data in first item of stack.")
-      println("Data ignored in stack.")
-      continue
-    end
-    push!(ystack,data.y); push!(α,data.alpha)
-  end
-  if alpha > 0
-    α = alpha
-  elseif mean(α) > 0
-    α = mean(α)
-  else
-    α = 1
-  end
-  clr = []
-  for (i, plt) in enumerate(plot_list)
-    if cs=="own"
-      try c = lc[i]
-      catch
-        println("Warning! Colour not defined for data $i. Using default.")
-        c, lstyle = sel_ls("default",lc=i)
-      end
-    elseif cs==""
-      if plt.colour == nothing
-        println("Warning! Colour not defined for data $i. Using default.")
-        c, lstyle = sel_ls("default",lc=i)
-      else c = plt.colour
-      end
-    else
-      c, lstyle = sel_ls(cs,lc=i)
-    end
-    push!(clr,c)
-  end
-  ax[:stackplot](xdata,ystack,colors=clr,alpha=α)
-  ax=draw_boundaries(boundaries,xdata,ystack,clr,lt,ax)
+  # Plot data as stack with optional boundary lines
+  fig, ax = print_stack(xdata, ystack, ylines, boundaries, labels, colour, lt, α, figsize)
 
-  # Define logscales
-  xlim = get_lim(xlims,ax,:get_xlim)
-  ax[:set_xlim](xlim)
-  ylim = get_lim(ylims,ax,:get_ylim)
-  ax[:set_ylim](ylim)
-  if occursin("x",logscale)
-    xlim = set_log2(plot_list,xlim,:x)
-    ax[:set_xlim](xlim)
-    ax[:set_xscale]("log")
-  end
-  if occursin("y",logscale)
-    ylim = set_log2(plot_list,ylim,:y)
-    ax[:set_ylim](ylim)
-    ax[:set_yscale]("log")
-  end
+  # Format plot
+  fig, ax = format_axes_and_annotations(fig, [ax], [plot_list], ti, xlabel, [ylabel],
+    fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, ax_offset,
+    maj_xticks, [maj_yticks], min_xticks, [min_yticks], mticks, ticksize, framewidth)
 
-  # Set plot title
-  ax[:set_title](ti, fontsize=fntsiz+ti_offset)
+  # Set axis limits and log scales
+  if xlims == nothing  xlims = (nothing, nothing)  end
+  if ylims == nothing  ylims = (nothing, nothing)  end
+  ax = set_axes([plot_list], ax, [logscale], [xlims], [ylims])
 
-  # Generate axes labels and legend, define axes label/tick colours
-  ax[:set_xlabel](xlabel,fontsize=fntsiz+ax_offset)
-  ax[:set_ylabel](ylabel,fontsize=fntsiz+ax_offset)
-
-  if legpos ≠ "None" && any([p.label≠"" for p in plot_list])
-    lbl = [p.label for p in plot_list]
-    ax[:legend](lbl, fontsize=fntsiz+leg_offset, loc=legpos, ncol=legcolumns)
-  end
-
-  # Set ticks and optional minor ticks
-  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
-    xint = collect(ax[:get_xlim]()[1]:maj_xticks:ax[:get_xlim]()[2])
-    ax[:set_xticks](xint)
-  end  end
-  if maj_yticks > 0
-    yint = collect(ax[:get_ylim]()[1]:maj_yticks:ax[:get_ylim]()[2])
-    ax[:set_yticks](yint)
-  end
-  if mticks == "on"
-    minorticks_on()
-  else
-    minorticks_off()
-  end
-  # Set minor x ticks
-  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
-    if min_xticks > 0
-      mx = matplotlib[:ticker][:MultipleLocator](min_xticks)
-      ax[:xaxis][:set_minor_locator](mx)
-    end
-  elseif min_xticks isa Number
-    min_xticks = [6,12,18]
-  end
-  # Set minor y ticks
-  for i = 1:length(min_yticks)
-    if min_yticks > 0
-      my = matplotlib[:ticker][:MultipleLocator](min_yticks)
-      ax[:yaxis][:set_minor_locator](my)
-    end
-  end
-  # Format ticks and frame
-  Mtlen = ticksize[1]⋅framewidth
-  mtlen = ticksize[2]⋅framewidth
-  ax[:tick_params]("both", which="both", direction="in", top="on", right="on",
-    labelsize=fntsiz, width=framewidth)
-  ax[:grid](linestyle=":", linewidth = framewidth)
-  ax[:spines]["bottom"][:set_linewidth](framewidth)
-  ax[:spines]["top"][:set_linewidth](framewidth)
-  ax[:spines]["left"][:set_linewidth](framewidth)
-  ax[:spines]["right"][:set_linewidth](framewidth)
-  if typeof(plot_list[1].x) ≠ Vector{Dates.DateTime}
-    ax[:tick_params]("both", which="major", length=Mtlen)
-    ax[:tick_params]("both", which="minor", length=mtlen)
-  else
-    ax[:set_xlim](xmin=plot_list[1].x[1], xmax=plot_list[1].x[end])
-    if maj_xticks isa Vector
-      majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b, %H:%M")
-    else
-      majorformatter = matplotlib[:dates][:DateFormatter]("%d. %b")
-    end
-    minorformatter = matplotlib[:dates][:DateFormatter]("")
-    majorlocator = matplotlib[:dates][:HourLocator](byhour=maj_xticks)
-    minorlocator = matplotlib[:dates][:HourLocator](byhour=min_xticks)
-    ax[:xaxis][:set_major_formatter](majorformatter)
-    ax[:xaxis][:set_minor_formatter](minorformatter)
-    ax[:xaxis][:set_major_locator](majorlocator)
-    ax[:xaxis][:set_minor_locator](minorlocator)
-    fig[:autofmt_xdate](bottom=0.2,rotation=-30,ha="left")
-  end
-
-  fig.tight_layout()
 
   # Return PyPlot data
   return fig, ax
 end #function plot_stack
-=#
+
 
 """
     sel_ls(;cs::String="line",nc=1,nt=1)
@@ -878,8 +708,8 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
 
   # Set up second axis, if the twinax array is defined
   plt1 = PlotData[]; plt2 = PlotData[]
-  cl1 = String[]; dt1 = []; mt1 = []
-  cl2 = String[]; dt2 = []; mt2 = []
+  cl1 = []; dt1 = []; mt1 = []
+  cl2 = []; dt2 = []; mt2 = []
   if !isempty(twinax)
     # Set flag true and define 2nd axis in PyPlot
     push!(ax, plt.twinx())
@@ -960,8 +790,8 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
     if logscale isa String logscale = String[logscale]  end
     if logremove isa String logremove = String[logremove]  end
     if axcolour isa String axcolour = String[axcolour]  end
-    if maj_yticks isa Int64 maj_yticks = Int64[maj_yticks]  end
-    if min_yticks isa Int64 min_yticks = Int64[min_yticks]  end
+    if maj_yticks isa Real maj_yticks = Int64[maj_yticks]  end
+    if min_yticks isa Real min_yticks = Int64[min_yticks]  end
     if xlims == nothing     xlimit = [[nothing, nothing]]
     elseif xlims isa Tuple  xlimit = [[xlims[1],xlims[2]]]
     end
@@ -971,7 +801,7 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
     # if !isa(legpos, Array) legpos = [legpos]  end
     # if legcolumns isa Int64  legcolumns = [legcolumns]  end
   end
-  if ylab isa String  ylab = String[ylab]  end
+  if ylab isa AbstractString  ylab = String[ylab]  end
   if length(ax) > 1
     pltdata = [plt1, plt2]
     if !isa(cs, Vector) cs = [cs, cs]  end
@@ -1150,38 +980,34 @@ end #function redef_err
 
 
 """
-    set_log(pltdata, ax, logscale, xlim, ylim)
+    set_axes(pltdata, ax, logscale, xlim, ylim)
 
 Set x- and/or y-axis of `pltdata` to log scale for each `ax`, if the string
 `logscale` consists of `"x"` or `"y"` or `"xy"` for the corresponding axis.
 Adjust minimum/maximum values of the respective axis for logscale, if `xlim` or
 `ylim` are `nothing`.
 """
-function set_log(pltdata, ax, logscale, xlim, ylim)
+function set_axes(pltdata, ax, logscale, xlim, ylim)
 
   xlimits = []; ylimits = []
-  len = length(logscale)
-  for i = 1:len
-    for char in logscale[i]
-      if lowercase(char) == 'x'
-        xlimits = find_limits(pltdata[i], "x", xlim[i], xlimits)
-        if length(logscale[i]) == 1  push!(ylimits, ylim[i])  end
-        ax[i].set_xscale("log")
-      end
-      if lowercase(char) == 'y'
-        ylimits = find_limits(pltdata[i], "y", ylim[i], ylimits)
-        if length(logscale[i]) == 1  push!(xlimits, xlim[i])  end
-        ax[i].set_yscale("log")
-      end
+  for i = 1:length(logscale)
+    if occursin('x', lowercase(logscale[i]))
+      ax[i].set_xlim(find_limits(pltdata[i], "x", xlim[i]))
+      ax[i].set_xscale("log")
+    else
+      ax[i].set_xlim(xlim[i])
     end
-    if logscale[i] == ""
-      push!(xlimits, xlim[i]); push!(ylimits, ylim[i])
+    if occursin('y', lowercase(logscale[i]))
+      ax[i].set_ylim(find_limits(pltdata[i], "y", ylim[i]))
+      ax[i].set_yscale("log")
+    else
+      ax[i].set_ylim(ylim[i])
     end
   end
 
 
-  return ax, xlimits, ylimits
-end #function set_log
+  return ax
+end #function set_axes
 
 
 """
@@ -1191,7 +1017,8 @@ Set the axes `limits` to the minimum and maximum values for log plots in `pltdat
 if `lims` contain `nothing`; `datacols` labels the axes that are logarithmic with
 `"x"`, `"y"` or `"xy"`.
 """
-function find_limits(pltdata, datacols, lims, limits)
+function find_limits(pltdata, datacols, lims)
+
   # Find log axes and corresponding errors
   val = Symbol(datacols)
   low = Symbol("$(datacols)lerr"); high = Symbol("$(datacols)uerr")
@@ -1218,19 +1045,18 @@ function find_limits(pltdata, datacols, lims, limits)
     xmax = lims[2]
   end
 
-  # Save and return revised limits
-  push!(limits, [xmin, xmax])
-  return limits
-end
+  # Return revised limits
+  return (xmin, xmax)
+end #function find_limits
 
 
 """
-function remove_log(pltdata, logremove::Union{String, Vector{String}}, logscale::Union{String, Vector{String}})
+function setup_log(pltdata, logremove::Union{String, Vector{String}}, logscale::Union{String, Vector{String}})
 
 Depending on the keyword of `logremove`, set all positive or negative values to
 zero in PlotData `pltdata`, if `logscale` is set.
 """
-function remove_log(pltdata, logremove::Union{String, Vector{String}},
+function setup_log(pltdata, logremove::Union{String, Vector{String}},
   logscale::Union{String, Vector{String}})
 
   for i = 1:length(pltdata)
@@ -1249,7 +1075,7 @@ function remove_log(pltdata, logremove::Union{String, Vector{String}},
   end
 
   return pltdata
-end #function remove_log
+end #function setup_log
 
 
 """
@@ -1325,101 +1151,133 @@ function checkalias(;kwargs, alias=[""], default=[""])
   return kwargs[1]
 end
 
-#=
-"""
-    logBounds(xlims_orig, ylims_orig, ax)
 
-Set x and y limits for current plot's axes layers in array `ax`. Replace nothings with limits
-from current axis layer, otherwise use predefined values from `xlims_orig` and
-`ylims_orig`.
 """
-function logBounds(xlims_orig, ylims_orig, ax)
-  xlims = []; ylims = []
-  for l = 1:length(xlims_orig)
-    xlims_orig[l][1] == nothing ? xl = ax[l][:get_xlim]()[1] : xl = xlims_orig[l][1]
-    xlims_orig[l][2] == nothing ? xu = ax[l][:get_xlim]()[2] : xu = xlims_orig[l][2]
-    push!(xlims,[xl, xu])
-    ylims_orig[l][1] == nothing ? yl = ax[l][:get_ylim]()[1] : yl = ylims_orig[l][1]
-    ylims_orig[l][2] == nothing ? yu = ax[l][:get_ylim]()[2] : yu = ylims_orig[l][2]
-    push!(ylims,[yl, yu])
+    get_stack(plot_list...) -> xdata, ystack
+
+From the `plot_list` with `PlotData`, return a Vector of combined `xdata`
+and a vector with the `ydata` of each `PlotData`, where y data of missing `xdata`
+values is filled with `NaN`.
+"""
+function get_stack(plot_list...)
+  # Combine all xdata
+  xdata = union([p.x for p in plot_list]...)
+  ylines = cumsum([p.y for p in plot_list])
+  labels = [p.label for p in plot_list]
+  ystack = []
+
+  # Loop over plot data
+  for data in plot_list
+    # Find data different from combined xdata and warn
+    if data.x ≠ xdata
+      @warn "x data in $(data.label) differs from common x data."
+      ydata = []
+      # Loop over common x data and find common x values
+      for x in xdata
+        idx = findall(data.x .== x)
+        if isempty(idx)
+          # Fill missing values with NaN
+          push!(ydata, NaN)
+        elseif length(idx) > 1
+          # Only consider first x,y value pair of non-monotonic x data
+          @warn string("x data in $(data.label) not strictly monotonic. ",
+          "Only first (x, y) value pair considered.")
+          push!(ydata, data.y[idx[1]])
+        else
+          push!(ydata, data.y[idx[1]])
+        end
+      end
+      # push revised x data to ystack
+      push!(ystack, ydata)
+    else
+      # or use original y data, if x data doesn't differ from common x data
+      push!(ystack, data.y)
+    end
   end
-  return xlims, ylims
-end
 
-function get_lim(lim,ax,cmd)
-  if lim == nothing
-    lim = ax[cmd]()
-  else
-    lims = []
-    for (i,l) in enumerate(lim)
-      if l == nothing
-        push!(lims,ax[cmd]()[i])
-      else
-        push!(lims,l)
+  # Return combined x data and stacked y data
+  return xdata, ystack, ylines, labels
+end #function get_stack
+
+
+"""
+    format_stack(plot_list, cs, lc, alpha) -> clr, α
+
+From the `PlotData` in `plot_list`, the definition of a colour scheme `cs` and,
+if `cs = "own"`, a list of colours (`lc`), return a list of colours (`clr`).
+
+Set `α` to `alpha`, if alpha is greater `0`, otherwise use the mean of the `alpha`
+fields in the `PhotData` or (if `0`) use `1` (no transparency).
+"""
+function format_stack(cs, alpha, lc, lt, plot_list...)
+
+  # Set transparency
+  α = [a.alpha for a in plot_list]
+  alpha > 0 ? α = alpha : stats.mean(α) > 0 ? α = stats.mean(α) : α = 1
+  # Set color scheme
+  clr = []; ln = []
+  for (i, plt) in enumerate(plot_list)
+    if cs=="own"
+      # Set own stack colours with lc list
+      c = try lc[i]
+      catch
+        @warn "Colour not defined for data $i. Using default."
+        sel_ls("default", lc=i)[1]
+      end
+      # Set own stack colours with lc list
+      l = try lt[i]
+      catch
+        @warn "Line type not defined for data $i. Using default."
+        sel_ls("default", lc=i)[2]
+      end
+    elseif cs==""
+      # Use colours from PlotData
+      c = plt.colour
+      l = plt.dashes
+    else
+      # Use colour sccheme define by cs
+      c, l = try sel_ls(cs,lc=i,lt=i)[1:2]
+      catch
+        @warn "Colour scheme $cs not defined. Using default."
+        sel_ls("default", lc=i)[1:2]
       end
     end
-    lim = (lims[1],lims[2])
+    push!(clr,c); push!(ln,l)
   end
 
-  return lim
-end
+  return clr, ln, α
+end #function format_stack
 
 
-function set_log2(plt,lim,f)
-  mn = lim[1]; mx = lim[2]
-  if mn ≤ 0 && mx > 0
-    println("Warning! Values must be strictly positive for logarithmic plotting.")
-    println("Negative values and zeros ignored.")
-    data = Float64[]
-    for d in plt
-      if f==:x      data = vcat(data,d.x)
-      elseif f==:y  data = vcat(data,d.y)
-      end
-    end
-    data=sort!(data)
-    mn=data[findfirst(data.>0.)]
-  elseif mx ≥ 0 && mn < 0
-    println("Warning! Values must be strictly negative for logarithmic plotting.")
-    println("Positive values and zeros ignored.")
-    data = Float64[]
-    for d in plt
-      if f==:x      data = vcat(data,d.x)
-      elseif f==:y  data = vcat(data,d.y)
-      end
-    end
-    data=sort!(data)
-    mx=data[findlast(data.<0.)]
-  end
-  try mn = 10^floor(log10(mn))
-  catch
-    mn = -10^floor(log10(abs(mn)))
-  end
-  try mx = 10^ceil(log10(mx))
-  catch
-    mx = -10^ceil(log10(abs(mx)))
-  end
-  lim = (mn, mx)
-end
+"""
+    print_stack(alpha, xdata, ydata, colours, lt, ax) -> fig, ax
 
+"""
+function print_stack(xdata, ystack, ylines, boundaries, labels, colours, lt, α, figsize)
 
-function draw_boundaries(alpha,xdata,ydata,colours,lt,ax)
-  if alpha==0  return ax  end
+  # Start plot
+  fig, ax = plt.subplots(figsize=figsize)
 
-  ylines=[ydata[1]]
-  for i = 2:length(ydata)  push!(ylines,sum(ydata[1:i]))  end
-  [plot(xdata,ylines[i], color=colours[i], dashes = lt) for i = 1:length(ylines)]
+  # Plot data
+  ax.stackplot(xdata, ystack, labels=labels, colors=colours, alpha=α)
 
-  return ax
-end
-=#
+  # Resume, if optional boundaries are skipped
+  if boundaries==0  return fig, ax  end
+  [ax.plot(xdata, ylines[i], color=colours[i], dashes = lt[i], alpha=boundaries)
+    for i = 1:length(ylines)]
+
+  return fig, ax
+end #function print_stack
+
 
 """
 
 
 """
-function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, fontsize,
-  axcolour, ti_offset, ax_offset, maj_xticks, maj_yticks, min_xticks, min_yticks,
-  mticks, ticksize, framewidth)
+function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
+  fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, ax_offset,
+  maj_xticks, maj_yticks, min_xticks, min_yticks, mticks, ticksize, framewidth)
+
   # Set plot title
   ax[1].set_title(ti, fontsize=fontsize+ti_offset)
 
@@ -1433,13 +1291,13 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, fon
   # Set ticks and optional minor ticks
   if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}  if maj_xticks > 0
     xint = collect(ax[1].get_xlim()[1]:maj_xticks:ax[1].get_xlim()[2])
-    for i = 1:length(pltdata)  ax[i].set_xticks(xint)  end
+    for i = 1:length(plot_list)  ax[i].set_xticks(xint)  end
   end  end
   if maj_yticks[1] > 0  for i = 1:length(maj_yticks)
     yint = collect(ax[i].get_ylim()[1]:maj_yticks[i]:ax[i].get_ylim()[2])
     ax[i].set_yticks(yint)
   end  end
-  if mticks == "on"
+  if mticks == true
     plt.minorticks_on()
   else
     plt.minorticks_off()
@@ -1448,11 +1306,11 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, fon
   if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
     if min_xticks > 0
       mx = plt.matplotlib.ticker.MultipleLocator(min_xticks)
-      for i = 1:length(pltdata)
+      for i = 1:length(plot_list)
         ax[i].xaxis.set_minor_locator(mx)
       end
     end
-  elseif min_xticks isa Number
+  elseif min_xticks isa Real
     min_xticks = [6,12,18]
   end
   # Set minor y ticks
@@ -1493,6 +1351,18 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, fon
       fig.autofmt_xdate(bottom=0.2,rotation=-30,ha="left")
     end
   end
+
+  # Print legend
+  if length(ax) > 1
+    pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
+    plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
+    if any(plab .≠ "") && legpos ≠ "None"
+      ax[2].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+    end
+  elseif legpos ≠ "None" && any([p.label≠"" for p in plot_list[1]])
+    ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+  end
+  # Tight layout for plots with big labels
   fig.tight_layout()
 
   return fig, ax
