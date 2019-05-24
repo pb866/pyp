@@ -454,15 +454,15 @@ function plot_stack(plot_list::PlotData...;
   # Plot data as stack with optional boundary lines
   fig, ax = print_stack(xdata, ystack, ylines, boundaries, labels, colour, lt, α, figsize)
 
-  # Format plot
-  fig, ax = format_axes_and_annotations(fig, [ax], [plot_list], ti, xlabel, [ylabel],
-    fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, ax_offset,
-    maj_xticks, [maj_yticks], min_xticks, [min_yticks], mticks, ticksize, framewidth)
-
   # Set axis limits and log scales
   if xlims == nothing  xlims = (nothing, nothing)  end
   if ylims == nothing  ylims = (nothing, nothing)  end
-  ax = set_axes([plot_list], ax, [logscale], [xlims], [ylims])
+  ax = set_axes([plot_list], [ax], [logscale], [xlims], [ylims])
+
+  # Format plot
+  fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel],
+    fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, ax_offset,
+    maj_xticks, [maj_yticks], min_xticks, [min_yticks], mticks, ticksize, framewidth)
 
 
   # Return PyPlot data
