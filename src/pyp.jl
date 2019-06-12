@@ -290,6 +290,7 @@ Keyword arguments for `function plot_data` are:
   - **default:** `1`
 """
 function plot_data(plot_list::PlotData...;
+                  date_format::String="",
                   xlabel::AbstractString="model time / hours",
                   ylabel::Union{AbstractString, Vector{T} where T<:AbstractString} =
                   "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
@@ -349,7 +350,7 @@ function plot_data(plot_list::PlotData...;
 
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel,
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel, date_format,
     fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, ax_offset,
     maj_xticks, maj_yticks, min_xticks, min_yticks, mticks, ticksize, framewidth)
 
@@ -430,6 +431,7 @@ keyword arguments are possible.
   (**default:** `1`)
 """
 function plot_stack(plot_list::PlotData...;
+         date_format::String="",
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
          ti::AbstractString="", boundaries=0,
@@ -460,13 +462,13 @@ function plot_stack(plot_list::PlotData...;
   ax = set_axes([plot_list], [ax], [logscale], [xlims], [ylims])
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel],
+  fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel], date_format,
     fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, ax_offset,
     maj_xticks, [maj_yticks], min_xticks, [min_yticks], mticks, ticksize, framewidth)
 
 
   # Return PyPlot data
-  return fig, ax
+  return fig, ax[1]
 end #function plot_stack
 
 
@@ -1020,10 +1022,10 @@ if `lims` contain `nothing`; `datacols` labels the axes that are logarithmic wit
 function find_limits(pltdata, datacols, lims)
 
   # Find log axes and corresponding errors
-  val = Symbol(datacols)
+  ctype = Symbol(datacols)
   low = Symbol("$(datacols)lerr"); high = Symbol("$(datacols)uerr")
   # Get data of log axes
-  coldata = [getfield(p, val) for p in pltdata]
+  coldata = [getfield(p, ctype) for p in pltdata]
   # Revise minimum, if not pre-defined
   if lims[1] == nothing
     minerr = [getfield(p, low) for p in pltdata]
@@ -1161,33 +1163,27 @@ values is filled with `NaN`.
 """
 function get_stack(plot_list...)
   # Combine all xdata
-  xdata = union([p.x for p in plot_list]...)
+  xdata = sort(union([p.x for p in plot_list]...))
   ylines = cumsum([p.y for p in plot_list])
   labels = [p.label for p in plot_list]
   ystack = []
 
+
   # Loop over plot data
   for data in plot_list
-    # Find data different from combined xdata and warn
+    # Find data different from combined xdata
     if data.x ≠ xdata
+      # Warn about differences in x data
       @warn "x data in $(data.label) differs from common x data."
-      ydata = []
-      # Loop over common x data and find common x values
-      for x in xdata
-        idx = findall(data.x .== x)
-        if isempty(idx)
-          # Fill missing values with NaN
-          push!(ydata, NaN)
-        elseif length(idx) > 1
-          # Only consider first x,y value pair of non-monotonic x data
-          @warn string("x data in $(data.label) not strictly monotonic. ",
-          "Only first (x, y) value pair considered.")
-          push!(ydata, data.y[idx[1]])
-        else
-          push!(ydata, data.y[idx[1]])
-        end
+      if data.x ≠ sort(unique(data.x))
+        # Warn about non-monotonic x data
+        @warn string("x data in $(data.label) not strictly monotonic. ",
+        "Only first (x, y) value pair considered.")
       end
-      # push revised x data to ystack
+      # Fill missing x data with zeros
+      idx = findfirst.([xdata .== x for x in data.x])
+      ydata = NaN.*zeros(length(xdata))
+      ydata[idx] .= data.y
       push!(ystack, ydata)
     else
       # or use original y data, if x data doesn't differ from common x data
@@ -1274,7 +1270,7 @@ end #function print_stack
 
 
 """
-function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
+function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, date_format,
   fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, ax_offset,
   maj_xticks, maj_yticks, min_xticks, min_yticks, mticks, ticksize, framewidth)
 
@@ -1335,12 +1331,11 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
       ax[i].tick_params("both", which="major", length=Mtlen)
       ax[i].tick_params("both", which="minor", length=mtlen)
     else
-      ax[i].set_xlim(xmin=plot_list[1][1].x[1], xmax=plot_list[1][1].x[end])
-      if maj_xticks isa Vector
-        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b, %H:%M")
-      else
-        majorformatter = plt.matplotlib.dates.DateFormatter("%d. %b")
+      ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
+      if date_format == ""
+        maj_xticks isa Vector ? date_format = "%d. %b, %H:%M" : date_format = "%d. %b"
       end
+      majorformatter = plt.matplotlib.dates.DateFormatter(date_format)
       minorformatter = plt.matplotlib.dates.DateFormatter("")
       majorlocator = plt.matplotlib.dates.HourLocator(byhour=maj_xticks)
       minorlocator = plt.matplotlib.dates.HourLocator(byhour=min_xticks)
@@ -1348,7 +1343,7 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
       ax[i].xaxis.set_minor_formatter(minorformatter)
       ax[i].xaxis.set_major_locator(majorlocator)
       ax[i].xaxis.set_minor_locator(minorlocator)
-      fig.autofmt_xdate(bottom=0.2,rotation=-30,ha="left")
+      fig.autofmt_xdate(bottom=0.2,rotation=30,ha="right")
     end
   end
 
@@ -1363,7 +1358,7 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
     ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
   end
   # Tight layout for plots with big labels
-  fig.tight_layout()
+  if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}  fig.tight_layout()  end
 
   return fig, ax
 end #function format_axes_and_annotations
