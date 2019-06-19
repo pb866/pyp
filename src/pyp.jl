@@ -48,6 +48,7 @@ import Parameters; const par = Parameters
 import DataFrames; const df = DataFrames
 import DataFrames.DataFrame
 import Statistics; const stats = Statistics
+import Dierckx; const spl = Dierckx
 import LinearAlgebra.⋅
 
 
@@ -445,10 +446,12 @@ function plot_stack(plot_list::PlotData...;
          figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
          ticksize::Tuple{Real,Real}=(4.5,2.5), ti_offset::Real=4,
          ax_offset::Real=2, leg_offset::Real=0, legcolumns::Int64=1,
-         legpos::Union{String, Int64, Tuple{Real, Real}}="best")
+         legpos::Union{String, Int64, Tuple{Real, Real}}="best",
+         interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int64=3)
 
   # Get x and y data
-  xdata, ystack, ylines, labels = get_stack(plot_list...)
+  xdata, ystack, labels = get_stack(plot_list...)
+  ystack, ylines = interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
 
   # Format plot, set colour scheme
   colour, linetype, α = format_stack(cs, alpha, lc, lt, plot_list...)
@@ -1164,7 +1167,6 @@ values is filled with `NaN`.
 function get_stack(plot_list...)
   # Combine all xdata
   xdata = sort(union([p.x for p in plot_list]...))
-  ylines = cumsum([p.y for p in plot_list])
   labels = [p.label for p in plot_list]
   ystack = []
 
@@ -1192,7 +1194,7 @@ function get_stack(plot_list...)
   end
 
   # Return combined x data and stacked y data
-  return xdata, ystack, ylines, labels
+  return xdata, ystack, labels
 end #function get_stack
 
 
@@ -1363,4 +1365,130 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, dat
   return fig, ax
 end #function format_axes_and_annotations
 
+
+function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
+  # imiss = [findall(isnan.(ys)) for ys in ystack]
+  # idata = [findall(isfinite.(ys)) for ys in ystack]
+  ranges, extraranges = zip(index2range.(ystack)...)
+  if interpolate == "linreg" || interpolate == "linear"
+    interpolate = "spline"
+    kspline = 1
+  end
+  if interpolate == "ffill"
+    for i in 1:length(ranges), j in ranges[i]
+      ystack[i][j] .= ystack[i][j[1]-1]
+    end
+    if !(extrapolate == false || extrapolate == "None")
+      for i in 1:length(extraranges)
+        try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
+        catch; end
+      end
+    else
+      [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
+    end
+    if extrapolate == "both" || extrapolate == "nearest"
+      for i in 1:length(extraranges)
+        try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
+        catch; end
+      end
+    else
+      [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
+    end
+
+  elseif interpolate == "bfill"
+
+    for i in 1:length(ranges), j in ranges[i]
+      ystack[i][j] .= ystack[i][j[end]+1]
+    end
+    if !(extrapolate == false || extrapolate == "None")
+      for i in 1:length(extraranges)
+        try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
+        catch; end
+      end
+    else
+      [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
+    end
+    if extrapolate == "both" || extrapolate == "nearest"
+      for i in 1:length(extraranges)
+        try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
+        catch; end
+      end
+    else
+      [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
+    end
+
+  elseif interpolate == "mean"
+
+    for i in 1:length(ranges), j in ranges[i]
+      ystack[i][j] .= (ystack[i][j[1]-1] .+ ystack[i][j[end]+1]) ./ 2
+    end
+    if extrapolate == true || extrapolate == "nearest"
+      for i in 1:length(extraranges)
+        try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
+        catch; end
+      end
+      for i in 1:length(extraranges)
+        try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
+        catch; end
+      end
+    else
+      [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
+      [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
+    end
+
+  elseif interpolate == "spline"
+
+    xspl = [xdata[isfinite.(ystack[i])] for i = 1:length(ystack)]
+    yspl = [ystack[i][isfinite.(ystack[i])] for i = 1:length(ystack)]
+    if extrapolate == false
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc="zero", k=kspline)
+                for i = 1:length(ystack)]
+    elseif extrapolate == true
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc="extrapolate", k=kspline)
+                for i = 1:length(ystack)]
+    else
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc=extrapolate, k=kspline)
+                for i = 1:length(ystack)]
+    end
+    ystack = [spline[i](xdata) for i = 1:length(ystack)]
+
+  else
+
+    for i in 1:length(ranges), j in ranges[i]
+      ystack[i][j] .= interpolate
+    end
+    if extrapolate == true
+      [ystack[i][extraranges[i][1]] .= interpolate for i in 1:length(extraranges)]
+      [ystack[i][extraranges[i][end]] .= interpolate for i in 1:length(extraranges)]
+    else
+      [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
+      [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
+    end
+  end
+  ylines = cumsum(ystack)
+
+  return ystack, ylines
+end #function interpolate_stack
+
+
+function index2range(ydata)
+  idx = findall(isnan.(ydata))
+  global ptr = 0
+  index = []
+  while ptr < length(idx)
+    global ptr += 1
+    global istart = idx[ptr]
+    global iend = idx[ptr] + 1
+    while ptr < length(idx) && iend == idx[ptr+1]
+      if ptr == length(idx)  break  end
+      global iend += 1
+      global ptr += 1
+    end
+    push!(index, istart:iend-1)
+  end
+  firstextra = index[1][1] == 1 ? popfirst!(index) : 1:0
+  lastextra = index[end][end] == length(ydata) ? pop!(index) : 1:0
+
+  return index, (firstextra, lastextra)
+end #function index2range
 end #module pyp
