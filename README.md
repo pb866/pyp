@@ -10,7 +10,7 @@ Install into your preferred environment (`v1.0` for general Julia env or
 to any project) with
 
 ```julia
-using Pkg
+import Pkg
 Pkg.add("https://github.com/pb866/pyp.git")
 Pkg.instantiate()
 using pyp
@@ -214,7 +214,7 @@ Furthermore, different dash and marker types are available. Choose line
 colours with keyword `lc`, dash types with `lt`, and marker types with `pt`.
 You can select single values by handing over an integer, or ask for arrays
 of settings by handing over arrays or ranges. Array sizes, do not have to
-match, you can as for four colour setting, 2 line type settings, and a default marker type setting.  
+match, you can as for four colour setting, 2 line type settings, and a default marker type setting.
 Returns a single value or array of values in the order `lc`, `lt`, `pt`
 
 
