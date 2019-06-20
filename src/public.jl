@@ -171,7 +171,7 @@ Keyword arguments for `function plot_data` are:
   width (**default:** `(4.5,2.5)`)
 + `cap_offset` (`Real`): deviation from default cap size of `3` of marker error bars
   (**default:** `0`)
-+ `ti_offset`, `ax_offset`, `leg_offset`: Offsets for fontsizes of title, axes
++ `ti_offset`, `label_offset`, `leg_offset`, `ax_offset`: Offsets for fontsizes of title, axes
   labels, and legend, respectively, from default sizes. Numbers
   (positive or negative) will be added to fontsizes
   (**defaults:** `4`, `2`, `0`)
@@ -213,8 +213,8 @@ function plot_data(plot_list::PlotData...;
                   major_yticks::Union{Real,Vector{T} where T<:Real}=0,
                   figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12,
                   framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5),
-                  cap_offset::Real=0, ti_offset::Real=4, ax_offset::Real=2,
-                  leg_offset::Real=0, legcolumns::Int64=1,
+                  cap_offset::Real=0, ti_offset::Real=4, label_offset::Real=2,
+                  leg_offset::Real=0, ax_offset::Real=0, legcolumns::Int64=1,
                   legpos::Union{String, Int64, Tuple{Real, Real}}="best",
                   axcolour::Union{String, Vector{T} where T<:String}="black",
                   # Aliases:
@@ -257,7 +257,7 @@ function plot_data(plot_list::PlotData...;
 
   # Format plot
   fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel, date_format,
-    fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, ax_offset,
+    fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, label_offset, ax_offset,
     major_xticks, major_yticks, minor_xticks, minor_yticks, mticks, ticksize, framewidth)
 
   # Add nothing to ax in case 2nd axis is missing
@@ -316,7 +316,7 @@ keyword arguments are possible.
 + `ticksize` (`Tuple{Real,Real}`): Tuple with scaling factors for length of major
   (first tuple entry) and minor (second tuple entry) ticks in relation to their
   width (**default:** `(4.5,2.5)`)
-+ `ti_offset`, `ax_offset`, `leg_offset`: Offsets for fontsizes of title, axes
++ `ti_offset`, `label_offset`, `leg_offset`, `ax_offset`: Offsets for fontsizes of title, axes
   labels, and legend, respectively, from default sizes. Numbers
   (positive or negative) will be added to fontsizes
   (**defaults:** `4`, `2`, `0`)
@@ -350,7 +350,7 @@ function plot_stack(plot_list::PlotData...;
          major_yticks::Real = 0,
          figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
          ticksize::Tuple{Real,Real}=(4.5,2.5), ti_offset::Real=4,
-         ax_offset::Real=2, leg_offset::Real=0, legcolumns::Int64=1,
+         label_offset::Real=2, leg_offset::Real=0, ax_offset::Real=0, legcolumns::Int64=1,
          legpos::Union{String, Int64, Tuple{Real, Real}}="best",
          interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int64=3)
 
@@ -371,7 +371,7 @@ function plot_stack(plot_list::PlotData...;
 
   # Format plot
   fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel], date_format,
-    fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, ax_offset,
+    fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, label_offset, ax_offset,
     major_xticks, [major_yticks], minor_xticks, [minor_yticks], mticks, ticksize, framewidth)
 
 

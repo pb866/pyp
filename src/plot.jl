@@ -453,81 +453,81 @@ end #function print_stack
 
 """
 function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, date_format,
-  fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, ax_offset,
+  fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, label_offset, ax_offset,
   major_xticks, major_yticks, minor_xticks, minor_yticks, mticks, ticksize, framewidth)
 
   # Set plot title
   ax[1].set_title(ti, fontsize=fontsize+ti_offset)
 
-  # Generate axes labels and legend, define axes label/tick colours
-  ax[1].set_xlabel(xlabel,fontsize=fontsize+ax_offset)
+  # Generate axes labels
+  ax[1].set_xlabel(xlabel,fontsize=fontsize+label_offset)
   for n = 1:length(ylabel)
-    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+ax_offset, color=axcolour[n])
+    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+label_offset, color=axcolour[n])
   end
   [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
 
-  # Set ticks and optional minor ticks
-  if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}  if major_xticks > 0
-    xint = collect(ax[1].get_xlim()[1]:major_xticks:ax[1].get_xlim()[2])
-    for i = 1:length(plot_list)  ax[i].set_xticks(xint)  end
-  end  end
-  if major_yticks[1] > 0  for i = 1:length(major_yticks)
-    yint = collect(ax[i].get_ylim()[1]:major_yticks[i]:ax[i].get_ylim()[2])
-    ax[i].set_yticks(yint)
-  end  end
+  # Set/Unset minor ticks
   if mticks == true
     plt.minorticks_on()
   else
     plt.minorticks_off()
   end
-  # Set minor x ticks
-  if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
-    if minor_xticks > 0
-      mx = plt.matplotlib.ticker.MultipleLocator(minor_xticks)
-      for i = 1:length(plot_list)
-        ax[i].xaxis.set_minor_locator(mx)
-      end
-    end
-  elseif minor_xticks isa Real
-    minor_xticks = [6,12,18]
-  end
-  # Set minor y ticks
-  for i = 1:length(minor_yticks)
-    if minor_yticks[i] > 0
-      my = plt.matplotlib.ticker.MultipleLocator(minor_yticks[i])
-      ax[i].yaxis.set_minor_locator(my)
-    end
-  end
-  # Format ticks and frame
-  Mtlen = ticksize[1]⋅framewidth
-  mtlen = ticksize[2]⋅framewidth
-  for i = 1:length(plot_list)
-    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
-      labelsize=fontsize, width=framewidth)
-    ax[i].grid(linestyle=":", linewidth = framewidth)
-    ax[i].spines["bottom"].set_linewidth(framewidth)
-    ax[i].spines["top"].set_linewidth(framewidth)
-    ax[i].spines["left"].set_linewidth(framewidth)
-    ax[i].spines["right"].set_linewidth(framewidth)
+
+  # Format axes and ticks
+  if typeof(plot_list[1][1].x) <: Vector{T} where T <: Real
+    ax = format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
+      ticksize, framewidth, fontsize, ax_offset)
+  else
+    # ax = format_timeseries()
+
+    # Set minor x ticks
     if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
-      ax[i].tick_params("both", which="major", length=Mtlen)
-      ax[i].tick_params("both", which="minor", length=mtlen)
-    else
-      ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
-      if date_format == ""
-        major_xticks isa Vector ? date_format = "%d. %b, %H:%M" : date_format = "%d. %b"
+
+    elseif minor_xticks isa Real
+      minor_xticks = [6,12,18]
+    end
+
+    # Format ticks and frame
+    for i = 1:length(plot_list)
+      @show ax_offset
+      ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
+        labelsize=fontsize+ax_offset, width=framewidth)
+      ax[i].grid(linestyle=":", linewidth = framewidth)
+      ax[i].spines["bottom"].set_linewidth(framewidth)
+      ax[i].spines["top"].set_linewidth(framewidth)
+      ax[i].spines["left"].set_linewidth(framewidth)
+      ax[i].spines["right"].set_linewidth(framewidth)
+      if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
+        ax[i].tick_params("both", which="major", length=ticksize[1]⋅framewidth)
+        ax[i].tick_params("both", which="minor", length=ticksize[2]⋅framewidth)
+      else
+        ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
+        if date_format == ""
+          major_xticks isa Vector ? date_format = "%d. %b, %H:%M" : date_format = "%d. %b"
+        end
+        majorformatter = plt.matplotlib.dates.DateFormatter(date_format)
+        minorformatter = plt.matplotlib.dates.DateFormatter("")
+        majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks)
+        minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
+        ax[i].xaxis.set_major_formatter(majorformatter)
+        ax[i].xaxis.set_minor_formatter(minorformatter)
+        ax[i].xaxis.set_major_locator(majorlocator)
+        ax[i].xaxis.set_minor_locator(minorlocator)
+        fig.autofmt_xdate(bottom=0.2,rotation=30,ha="right")
       end
-      majorformatter = plt.matplotlib.dates.DateFormatter(date_format)
-      minorformatter = plt.matplotlib.dates.DateFormatter("")
-      majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks)
-      minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
-      ax[i].xaxis.set_major_formatter(majorformatter)
-      ax[i].xaxis.set_minor_formatter(minorformatter)
-      ax[i].xaxis.set_major_locator(majorlocator)
-      ax[i].xaxis.set_minor_locator(minorlocator)
-      fig.autofmt_xdate(bottom=0.2,rotation=30,ha="right")
     end
   end
+
+  # Set yticks and optional minor yticks
+  for i = 1:length(major_yticks)  if major_yticks[i] > 0
+    yint = collect(ax[i].get_ylim()[1]:major_yticks[i]:ax[i].get_ylim()[2])
+    ax[i].set_yticks(yint)
+  end  end
+  # Set minor y ticks
+  for i = 1:length(minor_yticks)  if minor_yticks[i] > 0
+    my = plt.matplotlib.ticker.MultipleLocator(minor_yticks[i])
+    ax[i].yaxis.set_minor_locator(my)
+  end  end
 
   # Print legend
   if length(ax) > 1
@@ -539,8 +539,41 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, dat
   elseif legpos ≠ "None" && any([p.label≠"" for p in plot_list[1]])
     ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
   end
+
   # Tight layout for plots with big labels
-  if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}  fig.tight_layout()  end
+  if typeof(plot_list[1][1].x) <: Vector{Dates.TimeType}  fig.tight_layout()  end
 
   return fig, ax
 end #function format_axes_and_annotations
+
+
+function format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
+  ticksize, framewidth, fontsize, ax_offset)
+  # Set ticks and optional minor ticks
+  if major_xticks > 0
+    xint = collect(ax[1].get_xlim()[1]:major_xticks:ax[1].get_xlim()[2])
+    for i = 1:length(plot_list)  ax[i].set_xticks(xint)  end
+  end
+  # Set minor ticks
+  if mticks && minor_xticks > 0
+    mx = plt.matplotlib.ticker.MultipleLocator(minor_xticks)
+    for i = 1:length(plot_list)
+      ax[i].xaxis.set_minor_locator(mx)
+    end
+  end
+
+  # Format ticks and frame
+  for i = 1:length(plot_list)
+    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
+      labelsize=fontsize+ax_offset, width=framewidth)
+    ax[i].grid(linestyle=":", linewidth = framewidth)
+    ax[i].spines["bottom"].set_linewidth(framewidth)
+    ax[i].spines["top"].set_linewidth(framewidth)
+    ax[i].spines["left"].set_linewidth(framewidth)
+    ax[i].spines["right"].set_linewidth(framewidth)
+    ax[i].tick_params("both", which="major", length=ticksize[1]⋅framewidth)
+    ax[i].tick_params("both", which="minor", length=ticksize[2]⋅framewidth)
+  end
+
+  return ax
+end #function format_xdata
