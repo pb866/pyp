@@ -80,7 +80,7 @@ that can be addressed with keyword arguments for the following fields:
 - `alpha`: `Real` to specify opaqueness
 """
 par.@with_kw mutable struct PlotData
-  x::Union{Vector{Dates.DateTime}, Vector{T} where T<:Real}
+  x::Union{Vector{T} where T<:Dates.TimeType, Vector{T} where T<:Real}
   y::Vector{T} where T<:Real
   xuerr::Union{Nothing,Vector{T} where T<:Real}=nothing
   xlerr::Union{Nothing,Vector{T} where T<:Real}=nothing
@@ -88,7 +88,7 @@ par.@with_kw mutable struct PlotData
   ylerr::Union{Nothing,Vector{T} where T<:Real}=nothing
   label::AbstractString=""
   marker::Union{String,Int64}="None"
-  dashes::Union{Tuple{Real,Real},Vector{T} where T<:Real}=[]
+  dashes::Union{Tuple{Real,Real},Vector{T} where T<:Real}=Int64[]
   colour::Union{Nothing,String,Symbol}=nothing
   lw::Real=1.4
   alpha::Real=1
