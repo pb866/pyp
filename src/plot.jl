@@ -452,8 +452,9 @@ end #function print_stack
 
 
 """
-function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, date_format,
-  fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, label_offset, ax_offset,
+function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
+  timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
+  axcolour, leg_offset, ti_offset, label_offset, ax_offset,
   major_xticks, major_yticks, minor_xticks, minor_yticks, mticks, ticksize, framewidth)
 
   # Set plot title
@@ -478,44 +479,19 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel, dat
     ax = format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
       ticksize, framewidth, fontsize, ax_offset)
   else
-    # ax = format_timeseries()
+    fig, ax = format_timeseries(fig, ax, plot_list, timeformat, timescale, major_interval, minor_interval,
+      major_xticks, minor_xticks, mticks, xlims, ticksize, framewidth, fontsize, ax_offset)
+  end
 
-    # Set minor x ticks
-    if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
-
-    elseif minor_xticks isa Real
-      minor_xticks = [6,12,18]
-    end
-
-    # Format ticks and frame
-    for i = 1:length(plot_list)
-      @show ax_offset
-      ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
-        labelsize=fontsize+ax_offset, width=framewidth)
-      ax[i].grid(linestyle=":", linewidth = framewidth)
-      ax[i].spines["bottom"].set_linewidth(framewidth)
-      ax[i].spines["top"].set_linewidth(framewidth)
-      ax[i].spines["left"].set_linewidth(framewidth)
-      ax[i].spines["right"].set_linewidth(framewidth)
-      if typeof(plot_list[1][1].x) ≠ Vector{Dates.DateTime}
-        ax[i].tick_params("both", which="major", length=ticksize[1]⋅framewidth)
-        ax[i].tick_params("both", which="minor", length=ticksize[2]⋅framewidth)
-      else
-        ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
-        if date_format == ""
-          major_xticks isa Vector ? date_format = "%d. %b, %H:%M" : date_format = "%d. %b"
-        end
-        majorformatter = plt.matplotlib.dates.DateFormatter(date_format)
-        minorformatter = plt.matplotlib.dates.DateFormatter("")
-        majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks)
-        minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
-        ax[i].xaxis.set_major_formatter(majorformatter)
-        ax[i].xaxis.set_minor_formatter(minorformatter)
-        ax[i].xaxis.set_major_locator(majorlocator)
-        ax[i].xaxis.set_minor_locator(minorlocator)
-        fig.autofmt_xdate(bottom=0.2,rotation=30,ha="right")
-      end
-    end
+  # Format ticks and frame
+  for i = 1:length(plot_list)
+    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
+      labelsize=fontsize+ax_offset, width=framewidth)
+    ax[i].grid(linestyle=":", linewidth = framewidth)
+    ax[i].spines["bottom"].set_linewidth(framewidth)
+    ax[i].spines["top"].set_linewidth(framewidth)
+    ax[i].spines["left"].set_linewidth(framewidth)
+    ax[i].spines["right"].set_linewidth(framewidth)
   end
 
   # Set yticks and optional minor yticks
@@ -564,16 +540,195 @@ function format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
 
   # Format ticks and frame
   for i = 1:length(plot_list)
-    ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
-      labelsize=fontsize+ax_offset, width=framewidth)
-    ax[i].grid(linestyle=":", linewidth = framewidth)
-    ax[i].spines["bottom"].set_linewidth(framewidth)
-    ax[i].spines["top"].set_linewidth(framewidth)
-    ax[i].spines["left"].set_linewidth(framewidth)
-    ax[i].spines["right"].set_linewidth(framewidth)
     ax[i].tick_params("both", which="major", length=ticksize[1]⋅framewidth)
     ax[i].tick_params("both", which="minor", length=ticksize[2]⋅framewidth)
   end
 
   return ax
 end #function format_xdata
+
+function format_timeseries(fig, ax, plot_list, timeformat, timescale, major_interval, minor_interval,
+  major_xticks, minor_xticks, mticks, xlims, ticksize, framewidth, fontsize, ax_offset)
+
+  timeformat, majorlocator, minorlocator, majorformatter, minorformatter =
+    set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xticks,
+    major_interval, minor_interval)
+
+  # Format ticks and frame
+  for i = 1:length(plot_list)
+    ### Format xlim to beginning of period in timeseries
+    ax[i] = set_timeperiod(ax[i], timescale, plot_list[1][1].x, xlims[1])
+    # ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
+    ax[i].xaxis.set_major_formatter(majorformatter)
+    ax[i].xaxis.set_minor_formatter(minorformatter)
+    ax[i].xaxis.set_major_locator(majorlocator)
+    ax[i].xaxis.set_minor_locator(minorlocator)
+    fig.autofmt_xdate(bottom=0.2,rotation=30,ha="right")
+  end
+
+  return fig, ax
+end
+
+
+function set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xticks,
+  major_interval, minor_interval)
+
+  if timescale == timescale == "centuries"
+    if timeformat == ""  timeformat = "%Y"  end
+    if all(major_xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.YearLocator(major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.YearLocator(major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.YearLocator(25)
+    end
+    if all(minor_xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.YearLocator(minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.YearLocator(minor_interval)
+    else #default
+      minorlocator = plt.matplotlib.dates.YearLocator(5)
+    end
+  elseif timescale == "decades"
+    if timeformat == ""  timeformat = "%Y"  end
+    if all(major_xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.YearLocator(major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.YearLocator(major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.YearLocator(5)
+    end
+    if all(minor_xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.MonthLocator(interval=minor_interval)
+    else #default
+      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=1)
+    end
+  elseif timescale == "years"
+    if timeformat == ""  timeformat = "%Y"  end
+    if all(major_xticks .> 0)  # Set major x ticks
+      major_xticks isa Vector ?
+        majorlocator = plt.matplotlib.dates.MonthLocator(bymonth=major_xticks) :
+        majorlocator = plt.matplotlib.dates.YearLocator(major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.YearLocator(major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.YearLocator()
+    end
+    if all(minor_xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.MonthLocator(interval=minor_interval)
+    else #default
+      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=[1,4,7,10])
+    end
+  elseif timescale == "months"
+    if timeformat == ""  timeformat = "%B"  end
+    if all(major_xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.MonthLocator(bymonth=major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.MonthLocator(interval=major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.MonthLocator(interval=1)
+    end
+    if all(minor_xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.DayLocator(interval=minor_interval)
+    else #default
+        minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=15)
+    end
+  elseif timescale == "weeks"
+    if timeformat == ""  timeformat = "%-d. %b"  end
+    if all(major_xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.DayLocator(bymonthday=major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.DayLocator(interval=major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.DayLocator(interval=1)
+    end
+    if all(minor_xticks .≥ 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.HourLocator(interval=minor_interval)
+    else #default
+        minorlocator = plt.matplotlib.dates.HourLocator(byhour=[0,6,12,18])
+    end
+  elseif timescale == "days"
+    if timeformat == ""
+      major_xticks isa Vector ? timeformat = "%-d. %b, %H:%M" : timeformat = "%-d. %b"
+    end
+    if (major_xticks isa Vector && all(major_xticks .≥ 0)) || major_xticks > 0  # Set major x ticks
+      major_xticks isa Vector ?
+        majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks) :
+        majorlocator = plt.matplotlib.dates.DayLocator(bymonthday=major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.DayLocator(interval=major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.DayLocator(interval=1)
+    end
+    if all(minor_xticks .≥ 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.HourLocator(interval=minor_interval)
+    else #default
+        minorlocator = plt.matplotlib.dates.HourLocator(byhour=[0,6,12,18])
+    end
+  elseif timescale == "hours"
+    if timeformat == ""  timeformat = "%H:%M"  end
+    if all(major_xticks .≥ 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks)
+    elseif major_interval > 0
+      majorlocator = plt.matplotlib.dates.HourLocator(interval=major_interval)
+    else #default
+      majorlocator = plt.matplotlib.dates.HourLocator(interval=1)
+    end
+    if all(minor_xticks .≥ 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.MinuteLocator(byminute=minor_xticks)
+    elseif minor_interval > 0
+      minorlocator = plt.matplotlib.dates.MinuteLocator(interval=minor_interval)
+    else #default
+        minorlocator = plt.matplotlib.dates.MinuteLocator(byminute=[0,15,30,45])
+    end
+  end
+  majorformatter = plt.matplotlib.dates.DateFormatter(timeformat)
+  minorformatter = plt.matplotlib.dates.DateFormatter("")
+
+  return timeformat, majorlocator, minorlocator, majorformatter, minorformatter
+end
+
+function set_timeperiod(ax, timescale, xdata, xlim)
+  if xlim[1] == nothing
+    if timescale == "centuries"
+      ax.set_xlim(left=Dates.floor(xdata[1], Dates.Year(25)))
+    elseif timescale == "decades"
+      ax.set_xlim(left=Dates.floor(xdata[1], Dates.Year(5)))
+    elseif timescale == "years"
+      ax.set_xlim(left=Dates.floor(xdata[1], Dates.Year))
+    elseif timescale == "months"
+      ax.set_xlim(left=Dates.floor(xdata[1], Dates.Month))
+    elseif timescale == "weeks" || timescale == "days"
+      ax.set_xlim(left=Dates.floor(xdata[1], Dates.Day))
+    elseif timescale == "hours"
+      ax.set_xlim(left=Dates.floor(xdata[1], Dates.Hour))
+    end
+  end
+  if xlim[2] == nothing
+    if timescale == "centuries"
+      ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Year(25)))
+    elseif timescale == "decades"
+      ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Year(5)))
+    elseif timescale == "years"
+      ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Year))
+    elseif timescale == "months"
+      ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Month))
+    elseif timescale == "weeks" || timescale == "days"
+      ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Day))
+    elseif timescale == "hours"
+      ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Hour))
+    end
+  end
+
+  return ax
+end

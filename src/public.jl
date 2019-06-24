@@ -196,21 +196,22 @@ Keyword arguments for `function plot_data` are:
   - **default:** `1`
 """
 function plot_data(plot_list::PlotData...;
-                  date_format::String="",
                   xlabel::AbstractString="model time / hours",
                   ylabel::Union{AbstractString, Vector{T} where T<:AbstractString} =
                   "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-                  ti::AbstractString="", twinax::Vector{T} where T<:Integer=Int64[],
+                  ti::AbstractString="", twinax::Vector{Int}=Int64[],
                   logscale::Union{String,Vector{T} where T<:String}="",
                   logremove::Union{String,Vector{T} where T<:String}="neg",
                   plot_type::String="default", cs::Union{String,Vector{T} where T<:String}="",
                   lt="default", pt="default",
                   lc::Union{String,Symbol, Vector{T} where T<:String, Vector{T} where T<:Symbol}="default",
                   alpha::Real=-1, xlims=nothing, ylims=nothing, mticks::Bool=true,
-                  minor_xticks::Union{Real,Vector{T} where T<:Real}=0,
+                  minor_xticks::Union{Real,Vector{Int}}=-1,
+                  major_xticks::Union{Real,Vector{Int}}=-1,
                   minor_yticks::Union{Real,Vector{T} where T<:Real}=0,
-                  major_xticks::Union{Real,Vector{T} where T<:Real}=0,
                   major_yticks::Union{Real,Vector{T} where T<:Real}=0,
+                  timeformat::String="", timescale::String="days",
+                  major_interval::Int=0, minor_interval::Int=0,
                   figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12,
                   framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5),
                   cap_offset::Real=0, ti_offset::Real=4, label_offset::Real=2,
@@ -256,9 +257,10 @@ function plot_data(plot_list::PlotData...;
 
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel, date_format,
-    fontsize, legpos, legcolumns, axcolour, leg_offset, ti_offset, label_offset, ax_offset,
-    major_xticks, major_yticks, minor_xticks, minor_yticks, mticks, ticksize, framewidth)
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel,
+    timeformat, timescale, major_interval, minor_interval, xlimit, fontsize, legpos, legcolumns,
+    axcolour, leg_offset, ti_offset, label_offset, ax_offset, major_xticks, major_yticks,
+    minor_xticks, minor_yticks, mticks, ticksize, framewidth)
 
   # Add nothing to ax in case 2nd axis is missing
   if length(ax) < 2  push!(ax, nothing)  end
@@ -337,17 +339,16 @@ keyword arguments are possible.
   (**default:** `1`)
 """
 function plot_stack(plot_list::PlotData...;
-         date_format::String="",
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
          ti::AbstractString="", boundaries=0,
          logscale::String="", logremove::String="neg",
          cs::String="", lt=[], lc=[], alpha::Real=0,
          xlims=nothing, ylims=nothing, mticks::Bool=true,
-         minor_xticks::Real = 0,
-         minor_yticks::Real = 0,
-         major_xticks::Real = 0,
-         major_yticks::Real = 0,
+         minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Real = 0,
+         major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
+         timeformat::String="", timescale::String="days",
+         major_interval::Int=0, minor_interval::Int=0,
          figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
          ticksize::Tuple{Real,Real}=(4.5,2.5), ti_offset::Real=4,
          label_offset::Real=2, leg_offset::Real=0, ax_offset::Real=0, legcolumns::Int64=1,
@@ -370,9 +371,10 @@ function plot_stack(plot_list::PlotData...;
   ax = set_axes([plot_list], [ax], [logscale], [xlims], [ylims])
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel], date_format,
-    fontsize, legpos, legcolumns, ["black"], leg_offset, ti_offset, label_offset, ax_offset,
-    major_xticks, [major_yticks], minor_xticks, [minor_yticks], mticks, ticksize, framewidth)
+  fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel],
+    timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
+    ["black"], leg_offset, ti_offset, label_offset, ax_offset, major_xticks, [major_yticks],
+    minor_xticks, [minor_yticks], mticks, ticksize, framewidth)
 
 
   # Return PyPlot data

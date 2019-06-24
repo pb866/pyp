@@ -49,6 +49,7 @@ import DataFrames; const df = DataFrames
 import DataFrames.DataFrame
 import Statistics; const stats = Statistics
 import Dierckx; const spl = Dierckx
+import filehandling; const fh = filehandling
 import LinearAlgebra.⋅
 
 
