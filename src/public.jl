@@ -368,7 +368,7 @@ function plot_stack(plot_list::PlotData...;
   # Set axis limits and log scales
   if xlims == nothing  xlims = (nothing, nothing)  end
   if ylims == nothing  ylims = (nothing, nothing)  end
-  ax = set_axes([pltdata], [ax], [logscale], [xlims], [ylims])
+  ax = set_axes([pltdata], [ax], [logscale], xlims, [ylims])
 
   # Format plot
   fig, ax = format_axes_and_annotations(fig, ax, [pltdata], ti, xlabel, [ylabel],

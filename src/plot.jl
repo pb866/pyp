@@ -636,7 +636,7 @@ function set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xt
     elseif minor_interval > 0
       minorlocator = plt.matplotlib.dates.DayLocator(interval=minor_interval)
     else #default
-        minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=15)
+        minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=16)
     end
   elseif timescale == "weeks"
     if timeformat == ""  timeformat = "%-d. %b"  end
