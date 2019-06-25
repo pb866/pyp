@@ -205,7 +205,7 @@ function plot_data(plot_list::PlotData...;
                   plot_type::String="default", cs::Union{String,Vector{T} where T<:String}="",
                   lt="default", pt="default",
                   lc::Union{String,Symbol, Vector{T} where T<:String, Vector{T} where T<:Symbol}="default",
-                  alpha::Real=-1, xlims=nothing, ylims=nothing, mticks::Bool=true,
+                  alpha::Real=1, xlims=nothing, ylims=nothing, mticks::Bool=true,
                   minor_xticks::Union{Real,Vector{Int}}=-1,
                   major_xticks::Union{Real,Vector{Int}}=-1,
                   minor_yticks::Union{Real,Vector{T} where T<:Real}=0,
@@ -342,7 +342,7 @@ function plot_stack(plot_list::PlotData...;
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
          ti::AbstractString="", logscale::String="", logremove::String="neg",
-         border=0, cs::String="", lt=[], lc=[], alpha::Real=0,
+         border=0, cs::String="", lt=[], lc=[], alpha::Real=1,
          xlims=nothing, ylims=nothing, mticks::Bool=true,
          minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Real = 0,
          major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
@@ -362,19 +362,16 @@ function plot_stack(plot_list::PlotData...;
   # Format plot, set colour scheme
   colour, linetype, α = format_stack(cs, alpha, lc, lt, pltdata...)
 
-  # set colour scheme and line/marker types
-  pltdata = set_style([pltdata], "stack", [cs], [lc], [lt], ["default"])
-
   # Plot data as stack with optional boundary lines
-  fig, ax = print_stack(xdata, ystack, ylines, border, labels, colour, lt, α, figsize)
+  fig, ax = print_stack(xdata, ystack, ylines, border, labels, colour, linetype, α, figsize)
 
   # Set axis limits and log scales
   if xlims == nothing  xlims = (nothing, nothing)  end
   if ylims == nothing  ylims = (nothing, nothing)  end
-  ax = set_axes(pltdata, [ax], [logscale], [xlims], [ylims])
+  ax = set_axes([pltdata], [ax], [logscale], [xlims], [ylims])
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, [ylabel],
+  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], ti, xlabel, [ylabel],
     timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
     ["black"], leg_offset, ti_offset, label_offset, ax_offset, major_xticks, [major_yticks],
     minor_xticks, [minor_yticks], mticks, ticksize, framewidth)

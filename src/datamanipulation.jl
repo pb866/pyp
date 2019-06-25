@@ -214,8 +214,6 @@ end
 
 
 function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
-  # imiss = [findall(isnan.(ys)) for ys in ystack]
-  # idata = [findall(isfinite.(ys)) for ys in ystack]
   ranges, extraranges = zip(index2range.(ystack)...)
   if interpolate == "linreg" || interpolate == "linear"
     interpolate = "spline"
@@ -333,8 +331,12 @@ function index2range(ydata)
     end
     push!(index, istart:iend-1)
   end
-  firstextra = index[1][1] == 1 ? popfirst!(index) : 1:0
-  lastextra = index[end][end] == length(ydata) ? pop!(index) : 1:0
+  if isempty(index)
+    firstextra, lastextra = 1:0, 1:0
+  else
+    firstextra = index[1][1] == 1 ? popfirst!(index) : 1:0
+    lastextra = index[end][end] == length(ydata) ? pop!(index) : 1:0
+  end
 
   return index, (firstextra, lastextra)
 end #function index2range

@@ -18,7 +18,7 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
   # Set flag for second axis, asume no second axis
   xlim = []; ylim = []
 
-  [p.alpha = alpha for p in plot_list if alpha ≥ 0]
+  [p.alpha = alpha for p in plot_list]
 
   # Set up second axis, if the twinax array is defined
   plt1 = PlotData[]; plt2 = PlotData[]
@@ -69,12 +69,11 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
     if major_yticks isa Int64 major_yticks = Int64[major_yticks, major_yticks]  end
     if minor_yticks isa Int64 minor_yticks = Int64[minor_yticks, minor_yticks]  end
     if xlims == nothing
-      xlimit = [[nothing, nothing],[nothing, nothing]]
+      xlimit = (nothing, nothing)
     elseif xlims isa Tuple
-      xl = [xlims[1],xlims[2]]
-      xlimit = [xl, xl]
+      xlimit = xlims
     elseif xlims isa Array
-      xlimit = [[xlims[1][1], xlims[1][2]], [xlims[2][1], xlims[2][2]]]
+      throw(ArgumentError("xlims must be a tuple or nothing!"))
     end
     if ylims == nothing
       ylimit = [[nothing, nothing],[nothing, nothing]]
@@ -106,8 +105,8 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
     if axcolour isa String axcolour = String[axcolour]  end
     if major_yticks isa Real major_yticks = Int64[major_yticks]  end
     if minor_yticks isa Real minor_yticks = Int64[minor_yticks]  end
-    if xlims == nothing     xlimit = [[nothing, nothing]]
-    elseif xlims isa Tuple  xlimit = [[xlims[1],xlims[2]]]
+    if xlims == nothing     xlimit = (nothing, nothing)
+    elseif xlims isa Tuple  xlimit = xlims
     end
     if ylims == nothing     ylimit = [[nothing, nothing]]
     elseif ylims isa Tuple  ylimit = [[ylims[1],ylims[2]]]
@@ -279,10 +278,10 @@ function set_axes(pltdata, ax, logscale, xlim, ylim)
   xlimits = []; ylimits = []
   for i = 1:length(logscale)
     if occursin('x', lowercase(logscale[i]))
-      ax[i].set_xlim(find_limits(pltdata[i], "x", xlim[i]))
+      ax[i].set_xlim(find_limits(pltdata[i], "x", xlim))
       ax[i].set_xscale("log")
     else
-      ax[i].set_xlim(xlim[i])
+      ax[i].set_xlim(xlim)
     end
     if occursin('y', lowercase(logscale[i]))
       ax[i].set_ylim(find_limits(pltdata[i], "y", ylim[i]))
@@ -391,7 +390,7 @@ function format_stack(cs, alpha, lc, lt, plot_list...)
 
   # Set transparency
   α = [a.alpha for a in plot_list]
-  alpha > 0 ? α = alpha : stats.mean(α) > 0 ? α = stats.mean(α) : α = 1
+  alpha < 1 ? α = alpha : α = stats.mean(α)
   # Set color scheme
   clr = []; ln = []
   for (i, plt) in enumerate(plot_list)
@@ -441,7 +440,7 @@ function print_stack(xdata, ystack, ylines, border, labels, colours, lt, α, fig
 
   # Resume, if optional border are skipped
   if border==0  return fig, ax  end
-  [ax.plot(xdata, ylines[i], color=colours[i], dashes = lt, alpha=border)
+  [ax.plot(xdata, ylines[i], color=colours[i], dashes = lt[i], alpha=border)
     for i = 1:length(ylines)]
 
   return fig, ax
@@ -557,7 +556,7 @@ function format_timeseries(fig, ax, plot_list, timeformat, timescale, major_inte
   # Format ticks and frame
   for i = 1:length(plot_list)
     ### Format xlim to beginning of period in timeseries
-    ax[i] = set_timeperiod(ax[i], timescale, plot_list[1][1].x, xlims[1])
+    ax[i] = set_timeperiod(ax[i], timescale, plot_list[1][1].x, xlims)
     # ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
     ax[i].xaxis.set_major_formatter(majorformatter)
     ax[i].xaxis.set_minor_formatter(minorformatter)
@@ -567,7 +566,7 @@ function format_timeseries(fig, ax, plot_list, timeformat, timescale, major_inte
   end
 
   return fig, ax
-end
+end #function format_timeseries
 
 
 function set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xticks,
@@ -731,4 +730,4 @@ function set_timeperiod(ax, timescale, xdata, xlim)
   end
 
   return ax
-end
+end #function set_timeperiod
