@@ -284,7 +284,7 @@ keyword arguments are possible.
   - **default:** `"concentration / mlc cm\$^{-3}\$ s\$^{-1}\$"`
 + `ti` (`String`): Plot title
   - **default:** `""` (empty string) for no title
-+ `boundaries` (`Real`): transparency value for boundary lines of each stack data (`0` **default** for no boundaries)
++ `border` (`Real`): transparency value for boundary lines of each stack data (`0` **default** for no border)
 + `alpha`: (`Real`): set transparency of areas of each stack data
   - `0` (**default**): Use transparency setting of the original `PlotData`
   - `1`: no transparency
@@ -293,8 +293,8 @@ keyword arguments are possible.
 + `cs` (`String`): Define colour scheme `default`, `source` or `sink` from `function sel_ls`
   - `""` (**default:**): colours as defined in the `PlotData`, where `nothing` is replaced by colours of the default colour scheme)
   - `"own"`: colours as define by array `lc`
-+ `lt`: dash type (defined by PyPlot's `dashes`) for boundaries
-  - for use only, when `boundaries` are switched on (with a value greater 0)
++ `lt`: dash type (defined by PyPlot's `dashes`) for border
+  - for use only, when `border` are switched on (with a value greater 0)
   - use tuple or array of integers/floats to define on/off dash pixels
   - `[]` (empty array, **default**): solid lines
   - tuple with 2 entries or array with at least 4 entries where odd entries are `0` for no lines
@@ -341,9 +341,8 @@ keyword arguments are possible.
 function plot_stack(plot_list::PlotData...;
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-         ti::AbstractString="", boundaries=0,
-         logscale::String="", logremove::String="neg",
-         cs::String="", lt=[], lc=[], alpha::Real=0,
+         ti::AbstractString="", logscale::String="", logremove::String="neg",
+         border=0, cs::String="", lt=[], lc=[], alpha::Real=0,
          xlims=nothing, ylims=nothing, mticks::Bool=true,
          minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Real = 0,
          major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
@@ -356,22 +355,26 @@ function plot_stack(plot_list::PlotData...;
          interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int64=3)
 
   # Get x and y data
-  xdata, ystack, labels = get_stack(plot_list...)
+  pltdata = deepcopy(plot_list)
+  xdata, ystack, labels = get_stack(pltdata...)
   ystack, ylines = interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
 
   # Format plot, set colour scheme
-  colour, linetype, α = format_stack(cs, alpha, lc, lt, plot_list...)
+  colour, linetype, α = format_stack(cs, alpha, lc, lt, pltdata...)
+
+  # set colour scheme and line/marker types
+  pltdata = set_style([pltdata], "stack", [cs], [lc], [lt], ["default"])
 
   # Plot data as stack with optional boundary lines
-  fig, ax = print_stack(xdata, ystack, ylines, boundaries, labels, colour, lt, α, figsize)
+  fig, ax = print_stack(xdata, ystack, ylines, border, labels, colour, lt, α, figsize)
 
   # Set axis limits and log scales
   if xlims == nothing  xlims = (nothing, nothing)  end
   if ylims == nothing  ylims = (nothing, nothing)  end
-  ax = set_axes([plot_list], [ax], [logscale], [xlims], [ylims])
+  ax = set_axes(pltdata, [ax], [logscale], [xlims], [ylims])
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [plot_list], ti, xlabel, [ylabel],
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, [ylabel],
     timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
     ["black"], leg_offset, ti_offset, label_offset, ax_offset, major_xticks, [major_yticks],
     minor_xticks, [minor_yticks], mticks, ticksize, framewidth)

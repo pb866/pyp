@@ -431,7 +431,7 @@ end #function format_stack
     print_stack(alpha, xdata, ydata, colours, lt, ax) -> fig, ax
 
 """
-function print_stack(xdata, ystack, ylines, boundaries, labels, colours, lt, α, figsize)
+function print_stack(xdata, ystack, ylines, border, labels, colours, lt, α, figsize)
 
   # Start plot
   fig, ax = plt.subplots(figsize=figsize)
@@ -439,9 +439,9 @@ function print_stack(xdata, ystack, ylines, boundaries, labels, colours, lt, α,
   # Plot data
   ax.stackplot(xdata, ystack, labels=labels, colors=colours, alpha=α)
 
-  # Resume, if optional boundaries are skipped
-  if boundaries==0  return fig, ax  end
-  [ax.plot(xdata, ylines[i], color=colours[i], dashes = lt[i], alpha=boundaries)
+  # Resume, if optional border are skipped
+  if border==0  return fig, ax  end
+  [ax.plot(xdata, ylines[i], color=colours[i], dashes = lt, alpha=border)
     for i = 1:length(ylines)]
 
   return fig, ax
