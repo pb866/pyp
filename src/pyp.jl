@@ -89,7 +89,7 @@ par.@with_kw mutable struct PlotData
   ylerr::Union{Nothing,Vector{T} where T<:Real}=nothing
   label::AbstractString=""
   marker::Union{String,Int64}="None"
-  dashes::Union{Tuple{Real,Real},Vector}=[]
+  dashes::Union{String,Tuple{Real,Real},Vector}=[]
   colour::Union{Nothing,String,Symbol}=nothing
   lw::Real=1.4
   alpha::Real=1

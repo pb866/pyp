@@ -125,7 +125,6 @@ line and point (marker) types at this array position. The boolean `ax_2` is need
 to specify, whether a second axis is used.
 """
 function set_style(pltdata, kw)
-  @show kw kw.lt kw.pt
 
   # Reset line and marker types to solid lines and squares, respectively,
   # if plot_type is set to line, scatter or both (markers connected by lines)
@@ -166,10 +165,14 @@ function set_style(pltdata, kw)
     if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = kw.lc[i][j]  end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.lt[i][j] ≠ "default"  pltdata[i][j].dashes = kw.lt[i][j]  end
+    if kw.lt[i][j] ≠ "default" && pltdata[i][j].dashes ≠ "None"
+      pltdata[i][j].dashes = kw.lt[i][j]
+    end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.pt[i][j] ≠ "default"  pltdata[i][j].marker = kw.pt[i][j]  end
+    if kw.pt[i][j] ≠ "default" && pltdata[i][j].dashes ≠ "None"
+      pltdata[i][j].marker = kw.pt[i][j]
+    end
   end
 
   # Return adjusted PlotData
