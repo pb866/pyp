@@ -163,11 +163,9 @@ function set_style(pltdata, kw)
 
   # Set manually defined styles (overwrites previous settings)
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    @show kw.lc[i][j]
     if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = kw.lc[i][j]  end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    @show kw.lt[i][j]
     if kw.lt[i][j] ≠ "default"  pltdata[i][j].dashes = kw.lt[i][j]  end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
@@ -368,43 +366,44 @@ if `cs = "own"`, a list of colours (`lc`), return a list of colours (`clr`).
 Set `α` to `alpha`, if alpha is greater `0`, otherwise use the mean of the `alpha`
 fields in the `PhotData` or (if `0`) use `1` (no transparency).
 """
-function format_stack(cs, alpha, lc, lt, plot_list...)
+function format_stack(alpha, kw, plot_list...)
 
-  # Set transparency
+  # Set opacity
   α = [a.alpha for a in plot_list]
   alpha > 0 ? α = alpha : stats.mean(α) > 0 ? α = stats.mean(α) : α = 1
   # Set color scheme
   clr = []; ln = []
   for (i, plt) in enumerate(plot_list)
-    if cs=="own"
+    if kw.cs=="own"
       # Set own stack colours with lc list
-      c = try lc[i]
+      c = try kw.lc[i]
       catch
         @warn "Colour not defined for data $i. Using default."
         sel_ls("default", lc=i)[1]
       end
       # Set own stack colours with lc list
-      l = try lt[i]
+      l = try kw.lt[i]
       catch
         @warn "Line type not defined for data $i. Using default."
         sel_ls("default", lt=i)[2]
       end
-    elseif cs==""
+    elseif kw.cs==""
       # Use colours from PlotData
       c = plt.colour
       l = plt.dashes
     else
       # Use colour sccheme define by cs
-      c, l = try sel_ls(cs,lc=i,lt=i)[1:2]
+      c, l = try sel_ls(kw.cs,lc=i,lt=i)[1:2]
       catch
-        @warn "Colour scheme $cs not defined. Using default."
+        @warn "Colour scheme $(kw.cs) not defined. Using default."
         sel_ls("default", lc=i)[1:2]
       end
     end
     push!(clr,c); push!(ln,l)
   end
+  kw.lc = clr; kw.lt = ln
 
-  return clr, ln, α
+  return kw, α
 end #function format_stack
 
 
@@ -412,17 +411,17 @@ end #function format_stack
     print_stack(alpha, xdata, ydata, colours, lt, ax) -> fig, ax
 
 """
-function print_stack(xdata, ystack, ylines, border, labels, colours, lt, α, figsize)
+function print_stack(xdata, ystack, ylines, border, labels, α, figsize, kw)
 
   # Start plot
   fig, ax = plt.subplots(figsize=figsize)
 
   # Plot data
-  ax.stackplot(xdata, ystack, labels=labels, colors=colours, alpha=α)
+  ax.stackplot(xdata, ystack, labels=labels, colors=kw.lc, alpha=α)
 
   # Resume, if optional border are skipped
   if border==0  return fig, ax  end
-  [ax.plot(xdata, ylines[i], color=colours[i], dashes = lt[i], alpha=border)
+  [ax.plot(xdata, ylines[i], color=kw.lc[i], dashes = kw.lt[i], alpha=border)
     for i = 1:length(ylines)]
 
   return fig, ax

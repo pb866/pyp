@@ -211,7 +211,7 @@ function plot_data(plot_list::PlotData...;
   framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5), cap_offset::Real=0,
   kw_aliases...)
 
-  # Check kwarg aliases as set all to the same value
+  # Check kwarg aliases and set default values
   kw = def_aliases(kw_aliases...)
 
   # Check for twin axes and devide datasets
@@ -247,7 +247,7 @@ function plot_data(plot_list::PlotData...;
   return fig, ax[1], ax[2]
 end #function plot_data
 
-#=
+
 """
     plot_stack(plot_list::Union{PlotData,pyp.PlotData}...; \\*\\*kwargs)
 
@@ -319,46 +319,45 @@ keyword arguments are possible.
 function plot_stack(plot_list::PlotData...;
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-         ti::AbstractString="", logscale::String="", logremove::String="neg",
-         border=0, cs::String="", lt=[], lc=[], alpha::Real=0,
-         xlims=nothing, ylims=nothing, mticks::Bool=true,
+         logscale::String="", logremove::String="neg",
          minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Real = 0,
          major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
          timeformat::String="", timescale::String="days",
          major_interval::Int=0, minor_interval::Int=0,
          figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
-         ticksize::Tuple{Real,Real}=(4.5,2.5), ti_offset::Real=4,
-         label_offset::Real=2, leg_offset::Real=0, ax_offset::Real=0, legcolumns::Int64=1,
-         legpos::Union{String, Int64, Tuple{Real, Real}}="best",
-         interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int64=3)
+         border=0, alpha::Real=0, ticksize::Tuple{Real,Real}=(4.5,2.5),
+         interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int64=3,
+         kw_aliases...)
+
+  # Make a deepcopy of plot_list to leave original PlotData unaltered
+  pltdata = deepcopy(plot_list)
+  # Check kwarg aliases and set default values
+  kw = def_aliases(kw_aliases...)
+  kw = adjust_kwargs(kw)
 
   # Get x and y data
-  pltdata = deepcopy(plot_list)
   xdata, ystack, labels = get_stack(pltdata...)
   ystack, ylines = interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
 
   # Format plot, set colour scheme
-  colour, linetype, α = format_stack(cs, alpha, lc, lt, pltdata...)
+  kw, α = format_stack(alpha, kw, pltdata...)
 
   # Plot data as stack with optional boundary lines
-  fig, ax = print_stack(xdata, ystack, ylines, border, labels, colour, linetype, α, figsize)
+  fig, ax = print_stack(xdata, ystack, ylines, border, labels, α, figsize, kw)
 
   # Set axis limits and log scales
-  if xlims == nothing  xlims = (nothing, nothing)  end
-  if ylims == nothing  ylims = (nothing, nothing)  end
-  ax = set_axes([pltdata], [ax], [logscale], xlims, [ylims])
+  ax = set_axes([pltdata], [ax], [logscale], kw)
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], ti, xlabel, [ylabel],
-    timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
-    ["black"], leg_offset, ti_offset, label_offset, ax_offset, major_xticks, [major_yticks],
-    minor_xticks, [minor_yticks], mticks, ticksize, framewidth)
+  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], xlabel, [ylabel],
+    timeformat, timescale, major_interval, minor_interval, fontsize,
+    major_xticks, [major_yticks], minor_xticks, [minor_yticks], ticksize,
+    framewidth, kw)
 
 
   # Return PyPlot data
   return fig, ax[1]
 end #function plot_stack
-=#
 
 
 """

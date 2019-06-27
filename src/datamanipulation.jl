@@ -396,51 +396,9 @@ function def_aliases(kw_aliases...)
 end #function def_aliases
 
 
-"""
-    checkaliases(args)
-
-Checks that aliases are used correctly without accidental multiple definitions
-for the kw`args` of function `plot_data`.
-"""
-function checkaliases(ti, title, cs, colorscheme, colourscheme,
-  lt, linestyle, linetype, dashes, pt, mt, marker, lc, linecolor, linecolour, color, colour,
-  legpos, legloc, loc)
-
-  ti = checkalias(kwargs = [ti, title], alias = ["ti", "title"], default = "")
-  cs = checkalias(kwargs = [cs, colorscheme, colourscheme],
-    alias = ["cs", "colorscheme", "colourscheme"], default = "")
-  lt = checkalias(kwargs = [lt, linestyle, linetype, dashes],
-    alias = ["lt", "linestyle", "linetype", "dashes"], default = "default")
-  pt = checkalias(kwargs = [pt, mt, marker], alias = ["pt", "mt", "marker"],
-    default = "default")
-  lc = checkalias(kwargs = [lc, linecolor, linecolour, color, colour],
-    alias = ["lc", "linecolor", "linecolour", "color", "colour"], default = "default")
-  legpos = checkalias(kwargs = [legpos, legloc, loc],
-    alias = ["legpos", "legloc", "loc"], default = "best")
-
-  return ti, cs, lt, pt, lc, legpos
-end
-
-"""
-    checkalias(;kwargs, alias=[""], default=[""])
-
-Checks that `kwargs` of a function are used correctly without accidental
-multiple definitions different from the `default` value. Otherwise warns about
-the multiple definitions giving naming the `alias`es with multiple definitions
-and chosing the value of the first kwarg for use in the function.
-"""
-function checkalias(;kwargs, alias=[""], default=[""])
-  setkw = findall(kwargs.≠default)
-  kw = kwargs[setkw]
-  al = alias[setkw]
-  if length(unique(kw)) > 1
-    warning = string("\033[93mMultiple definitions of keyword aliases ",
-      join(al, ", ", " and "), "!\n\33[0m`$(al[1]) = \"$(kw[1])\"` used.")
-    @warn(warning)
-    kwargs[1] = kw[1]
-  elseif length(unique(kw)) == 1
-    kwargs[1] = kw[1]
-  end
-
-  return kwargs[1]
+function adjust_kwargs(kw)
+  if kw.xlim == nothing  kw.xlim = (nothing, nothing)  end
+  kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
+  kw.axcolour = ["black"]
+  return kw
 end
