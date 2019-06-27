@@ -89,10 +89,35 @@ par.@with_kw mutable struct PlotData
   ylerr::Union{Nothing,Vector{T} where T<:Real}=nothing
   label::AbstractString=""
   marker::Union{String,Int64}="None"
-  dashes::Union{Tuple{Real,Real},Vector{T} where T<:Real}=Int64[]
+  dashes::Union{Tuple{Real,Real},Vector}=[]
   colour::Union{Nothing,String,Symbol}=nothing
   lw::Real=1.4
   alpha::Real=1
+end
+
+
+"""
+
+
+"""
+par.@with_kw mutable struct kwargs
+  ti::AbstractString=""
+  lt::Union{String,Tuple{Real,Real},Vector} = []
+  pt::Union{AbstractString,Int64,Vector}="default"
+  lc::Union{String,Symbol,Vector}="default"
+  lw::Real=1.4
+  cs::Union{String,Vector{T} where T<:String}=""
+  plottype::String="default"
+  legpos::Union{String, Int64, Tuple{Real, Real}}="best"
+  legcols::Int64=1
+  xlim::Union{Nothing,Tuple{Union{Nothing,T where T<:Real},Union{Nothing,T where T<:Real}}}=nothing
+  ylim=nothing
+  mticks::Bool=true
+  ti_offset::Real=4
+  lbl_offset::Real=2
+  leg_offset::Real=0
+  tick_offset::Real=0
+  axcolour::Union{String,Symbol,Vector{T} where T<:Union{String,Symbol}}="black"
 end
 
 include("public.jl")

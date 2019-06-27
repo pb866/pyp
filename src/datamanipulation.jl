@@ -343,6 +343,60 @@ end #function index2range
 
 
 """
+
+
+"""
+function def_aliases(kw_aliases...)
+  # Define all sets of keyword argument aliases
+  ti_aliases = (:ti, :title)
+  lt_aliases = (:lt, :ls, :linetype, :linestyle, :line_type, :line_style)
+  pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type)
+  lc_aliases = (:lc, :mc, :linecolour, :markercolour, :line_colour, :marker_colour,
+    :linecolor, :markercolor, :line_color, :marker_color, :colour, :color)
+  lw_aliases = (:lw, :linewidth, :line_width)
+  cs_aliases = (:cs, :colourscheme, :colour_scheme, :colorscheme, :color_scheme)
+  plt_aliases = (:plottype, :plot_type)
+  loc_aliases = (:legpos, :loc, :legloc)
+  lcol_aliases = (:legcols, :leg_cols, :legcolumns, :leg_columns,
+    :legendcols, :legend_cols, :legendcolumns, :legend_columns)
+  xlim_aliases = (:xlim, :xlims)
+  ylim_aliases = (:ylim, :ylims)
+  mticks_aliases = (:mticks, :minor_ticks)
+  tioff_aliases = (:ti_offset, :title_offset)
+  lbloff_aliases = (:lbl_offset, :lab_offset, :label_offset,
+    :axlbl_offset, :axlab_offset, :axlabel_offset,
+    :ax_lbl_offset, :ax_lab_offset, :ax_label_offset)
+  legoff_aliases = (:leg_offset, :legend_offset)
+  axoff_aliases = (:tick_offset, :ax_offset, :axes_offset)
+  axclr_aliases = (:axcolour, :ax_colour, :axcolor, :ax_color)
+
+  # Combine aliases in an overall tuple
+  aliases = [ti_aliases, lt_aliases, pt_aliases, lc_aliases, lw_aliases, cs_aliases,
+    plt_aliases, loc_aliases, lcol_aliases, xlim_aliases, ylim_aliases, mticks_aliases,
+    tioff_aliases, lbloff_aliases, legoff_aliases, axoff_aliases, axclr_aliases]
+
+  # Find keywords used in the argument list
+  kw_args = Dict(kw_aliases)
+  defined_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
+  # Define default parameters of type kwargs
+  selected_kwargs = kwargs()
+  # Overwrite default values with values of argument list
+  # and warn of duplicate definitions
+  for (i, kw) in enumerate(defined_kwargs)
+    if length(kw) == 1
+      setfield!(selected_kwargs, aliases[i][1], kw_args[kw[1]])
+    elseif length(kw) > 1
+      @warn "multiple aliases defined for $(kw[1]); others ignored", kw
+      setfield!(selected_kwargs, aliases[i][1], kw_args[kw[1]])
+    end
+  end
+
+  # Return final kwargs
+  return selected_kwargs
+end #function def_aliases
+
+
+"""
     checkaliases(args)
 
 Checks that aliases are used correctly without accidental multiple definitions

@@ -8,108 +8,89 @@ in `twinax`. Assure all paramters concerning y data are arrays of length 2, if
 a second axis is allowed or length 1 otherwise. Return `plot_list` as array of
 2 or 1 distinct lists an the adjusted parameters.
 """
-function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims, ylims,
-                    major_yticks, minor_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
+function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove,
+                    major_yticks, minor_yticks, alpha, kw)
 
   # Start plot
   fig, ax = plt.subplots(figsize=figsize)
   ax = [ax]
+  pltdata = deepcopy(plot_list)
 
-  # Set flag for second axis, asume no second axis
-  xlim = []; ylim = []
-
-  [p.alpha = alpha for p in plot_list]
-
-  # Set up second axis, if the twinax array is defined
+  # Set alpha
+  [p.alpha = alpha for p in pltdata if alpha > 0]
+  # Initialise parameters
   plt1 = PlotData[]; plt2 = PlotData[]
   cl1 = []; dt1 = []; mt1 = []
   cl2 = []; dt2 = []; mt2 = []
+
   if !isempty(twinax)
-    # Set flag true and define 2nd axis in PyPlot
+    # Set 2nd axis in PyPlot, if twinax is not empty
     push!(ax, plt.twinx())
     # Check correct input of twinax
-    if length(twinax) ≠ length(plot_list)
+    if length(twinax) ≠ length(pltdata)
       throw(ArgumentError(string("Array `twinax` must have the same length ",
-        "as there are number of `PhotData` elements.")))
+        "as there are number of `PlotData` elements.")))
     end
 
     # Assign data to the axes
     for i = 1:length(twinax)
       if twinax[i] == 1
-        push!(plt1,plot_list[i])
+        push!(plt1, pltdata[i])
         # check whether an array of definitions or a single definition exists
         # and assign either the current array entry to the respective axis
         # or the default value for line colour, type and marker type
-        if !isempty(lt) && (lt[i] isa Tuple || lt[i] isa Vector || lt[i] isa String)
-          push!(dt1,lt[i])
-        else
-          push!(dt1,lt)
-        end
-        if pt isa Vector  push!(mt1,pt[i])  else  push!(mt1,pt)  end
-        if lc isa Vector  push!(cl1,lc[i])  else  push!(cl1,lc)  end
+        !isempty(kw.lt) && (kw.lt[i] isa Tuple || kw.lt[i] isa Vector || kw.lt[i] isa String) ?
+          push!(dt1, kw.lt[i]) : push!(dt1, kw.lt)
+        kw.pt isa Vector ? push!(mt1, kw.pt[i]) : push!(mt1, kw.pt)
+        kw.lc isa Vector ? push!(cl1, kw.lc[i]) : push!(cl1, kw.lc)
       else
-        push!(plt2,plot_list[i])
+        push!(plt2, pltdata[i])
         # check whether an array of definitions or a single definition exists
         # and assign either the current array entry to the respective axis
         # or the default value for line colour, type and marker type
-        if !isempty(lt) && (lt[i] isa Tuple || lt[i] isa Vector || lt[i] isa String)
-          push!(dt2,lt[i])
-        else
-          push!(dt2,lt)
-        end
-        if pt isa Vector  push!(mt2,pt[i])  else  push!(mt2,pt)  end
-        if lc isa Vector  push!(cl2,lc[i])  else  push!(cl2,lc)  end
+        !isempty(kw.lt) && (kw.lt[i] isa Tuple || kw.lt[i] isa Vector || kw.lt[i] isa String) ?
+          push!(dt2, kw.lt[i]) : push!(dt2, kw.lt)
+        kw.pt isa Vector ? push!(mt2, kw.pt[i]) : push!(mt2, kw.pt)
+        kw.lc isa Vector ? push!(cl2, kw.lc[i]) : push!(cl2, kw.lc)
       end
     end
 
     # Make sure, all parameters for both axes are arrays of length 2
     if logscale isa String logscale = String[logscale, logscale]  end
     if logremove isa String logremove = String[logremove, logremove]  end
-    if axcolour isa String axcolour = String[axcolour, axcolour]  end
+    if kw.axcolour isa String kw.axcolour = String[kw.axcolour, kw.axcolour]  end
     if major_yticks isa Int64 major_yticks = Int64[major_yticks, major_yticks]  end
     if minor_yticks isa Int64 minor_yticks = Int64[minor_yticks, minor_yticks]  end
-    if xlims == nothing
-      xlimit = (nothing, nothing)
-    elseif xlims isa Tuple
-      xlimit = xlims
-    elseif xlims isa Array
+    if kw.xlim == nothing
+      kw.xlim = (nothing, nothing)
+    elseif kw.xlim isa Array
       throw(ArgumentError("xlims must be a tuple or nothing!"))
     end
-    if ylims == nothing
-      ylimit = [[nothing, nothing],[nothing, nothing]]
-    elseif ylims isa Tuple
-      yl = [ylims[1],ylims[2]]
-      ylimit = [yl, yl]
-    elseif ylims isa Array
-      ylimit = [[ylims[1][1], ylims[1][2]], [ylims[2][1], ylims[2][2]]]
+    if kw.ylim == nothing
+      kw.ylim = [(nothing, nothing), (nothing, nothing)]
+    elseif kw.ylim isa Tuple
+      kw.ylim = [kw.ylim, kw.ylim]
     end
-    # if !isa(legpos, Array) legpos = [legpos, legpos]  end
-    # if legcolumns isa Int64 legcolumns = [legcolumns, legcolumns]  end
   else
     # Assign all data to axis 1, if no second axis
-    plt1 = plot_list
+    plt1 = pltdata
     # check whether an array of definitions or a single definition exists
     # and assign either the current array entry to the respective axis
     # or the default value for line colour, type and marker type
-    if !isempty(lt) && (lt[1] isa Tuple || lt[1] isa Vector || lt[1] isa String)
-      dt1 = lt
-    else
-      dt1 = [lt for i in plot_list]
-    end
-    if pt isa Vector  mt1 = pt  else  mt1 = [pt for i in plot_list]  end
-    if lc isa Vector  cl1 = lc  else  cl1 = [lc for i in plot_list]  end
+    !isempty(kw.lt) && (kw.lt[1] isa Tuple || kw.lt[1] isa Vector || kw.lt[1] isa String) ?
+      dt1 = kw.lt : dt1 = [kw.lt for i in pltdata]
+    kw.pt isa Vector ? mt1 = kw.pt : mt1 = [kw.pt for i in pltdata]
+    kw.lc isa Vector ? cl1 = kw.lc : cl1 = [kw.lc for i in pltdata]
     # If no 2nd axis, make sure, all parameters for both axes are arrays of length 1
     # and not single parameters (numbers, strings...)
     if logscale isa String logscale = String[logscale]  end
     if logremove isa String logremove = String[logremove]  end
-    if axcolour isa String axcolour = String[axcolour]  end
+    if kw.axcolour isa String kw.axcolour = String[kw.axcolour]  end
     if major_yticks isa Real major_yticks = Int64[major_yticks]  end
     if minor_yticks isa Real minor_yticks = Int64[minor_yticks]  end
-    if xlims == nothing     xlimit = (nothing, nothing)
-    elseif xlims isa Tuple  xlimit = xlims
-    end
-    if ylims == nothing     ylimit = [[nothing, nothing]]
-    elseif ylims isa Tuple  ylimit = [[ylims[1],ylims[2]]]
+    if kw.xlim == nothing     kw.xlim = (nothing, nothing)  end
+    if kw.ylim == nothing     kw.ylim = [(nothing, nothing)]
+    elseif kw.ylim isa Tuple  kw.ylim = [kw.ylim]
     end
     # if !isa(legpos, Array) legpos = [legpos]  end
     # if legcolumns isa Int64  legcolumns = [legcolumns]  end
@@ -117,21 +98,20 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove, xlims
   if ylab isa AbstractString  ylab = String[ylab]  end
   if length(ax) > 1
     pltdata = [plt1, plt2]
-    if !isa(cs, Vector) cs = [cs, cs]  end
-    lc = [cl1, cl2]
-    lt = [dt1, dt2]
-    pt = [mt1, mt2]
+    if !isa(kw.cs, Vector) kw.cs = [kw.cs, kw.cs]  end
+    kw.lc = [cl1, cl2]
+    kw.lt = [dt1, dt2]
+    kw.pt = [mt1, mt2]
   else
     pltdata = [plt1]
-    cs = [cs]
-    lc = [cl1]
-    lt = [dt1]
-    pt = [mt1]
+    kw.cs = [kw.cs]
+    kw.lc = [cl1]
+    kw.lt = [dt1]
+    kw.pt = [mt1]
   end
 
   # Return adjusted data
-  return pltdata, fig, ax, ylab, logscale, logremove, xlimit, ylimit,
-         major_yticks, minor_yticks, cs, lc, lt, pt, axcolour
+  return pltdata, fig, ax, ylab, logscale, logremove, major_yticks, minor_yticks, kw
 end #function setup_plot
 
 
@@ -144,20 +124,21 @@ element in `pltdata`, `lc`, `lt`, and `pt` must hold valid definitions of line c
 line and point (marker) types at this array position. The boolean `ax_2` is needed
 to specify, whether a second axis is used.
 """
-function set_style(pltdata, ptype, cs, lc, lt, pt)
+function set_style(pltdata, kw)
+  @show kw kw.lt kw.pt
 
   # Reset line and marker types to solid lines and squares, respectively,
   # if plot_type is set to line, scatter or both (markers connected by lines)
   for i = 1:length(pltdata)
-    if ptype == "line"
-      [pltdata[i][j].dashes = Int64[] for j = 1:length(lt[i])]
-      [pltdata[i][j].marker = "None" for j = 1:length(lt[i])]
-    elseif ptype == "scatter"
-      [pltdata[i][j].dashes = "None" for j = 1:length(lt[i])]
-      [pltdata[i][j].marker = "s" for j = 1:length(lt[i])]
-    elseif ptype == "both"
-      [pltdata[i][j].dashes = Int64[] for j = 1:length(lt[i])]
-      [pltdata[i][j].marker = "s" for j = 1:length(pt[i])]
+    if kw.plottype == "line"
+      [pltdata[i][j].dashes = Int64[] for j = 1:length(kw.lt[i])]
+      [pltdata[i][j].marker = "None" for j = 1:length(kw.pt[i])]
+    elseif kw.plottype == "scatter"
+      [pltdata[i][j].dashes = "None" for j = 1:length(kw.lt[i])]
+      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i])]
+    elseif kw.plottype == "both"
+      [pltdata[i][j].dashes = Int64[] for j = 1:length(kw.lt[i])]
+      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i])]
     end
   end
 
@@ -165,30 +146,32 @@ function set_style(pltdata, ptype, cs, lc, lt, pt)
   # and use continuous indexing for the same scheme
   idx = []
   push!(idx, [i for i = 1:length(pltdata[1])])
-  if length(cs) == 2
-    cs[1] == cs[2] ? ind = length(idx[1]) : ind = 0
+  if length(kw.cs) == 2
+    kw.cs[1] == kw.cs[2] ? ind = length(idx[1]) : ind = 0
     push!(idx, [i+ind for i = 1:length(pltdata[2])])
   end
   # Set line/marker styles and colour for a chosen colour scheme
   # (overwrites default settings from plot_type)
-  for i = 1:length(pltdata)  if cs[i]≠""
+  for i = 1:length(pltdata)  if kw.cs[i]≠""
     for j = 1:length(pltdata[i])
-      cl, dt, mt = sel_ls(cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
+      cl, dt, mt = sel_ls(kw.cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
       pltdata[i][j].colour = cl
-      if ptype ≠ "scatter"  pltdata[i][j].dashes = dt  end
-      if ptype ≠ "line"  pltdata[i][j].marker = mt  end
+      if kw.plottype ≠ "scatter"  pltdata[i][j].dashes = dt  end
+      if kw.plottype ≠ "line"  pltdata[i][j].marker = mt  end
     end
   end  end
 
   # Set manually defined styles (overwrites previous settings)
-  for i = 1:length(lc), j = 1:length(lc[i])
-    if lc[i][j] ≠ "default"  pltdata[i][j].colour = lc[i][j]  end
+  for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
+    @show kw.lc[i][j]
+    if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = kw.lc[i][j]  end
   end
-  for i = 1:length(lc), j = 1:length(lc[i])
-    if lt[i][j] ≠ "default"  pltdata[i][j].dashes = lt[i][j]  end
+  for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
+    @show kw.lt[i][j]
+    if kw.lt[i][j] ≠ "default"  pltdata[i][j].dashes = kw.lt[i][j]  end
   end
-  for i = 1:length(lc), j = 1:length(lc[i])
-    if pt[i][j] ≠ "default"  pltdata[i][j].marker = pt[i][j]  end
+  for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
+    if kw.pt[i][j] ≠ "default"  pltdata[i][j].marker = kw.pt[i][j]  end
   end
 
   # Return adjusted PlotData
@@ -273,21 +256,20 @@ Set x- and/or y-axis of `pltdata` to log scale for each `ax`, if the string
 Adjust minimum/maximum values of the respective axis for logscale, if `xlim` or
 `ylim` are `nothing`.
 """
-function set_axes(pltdata, ax, logscale, xlim, ylim)
+function set_axes(pltdata, ax, logscale, kw)
 
-  xlimits = []; ylimits = []
   for i = 1:length(logscale)
     if occursin('x', lowercase(logscale[i]))
-      ax[i].set_xlim(find_limits(pltdata[i], "x", xlim))
+      ax[i].set_xlim(find_limits(pltdata[i], "x", kw.xlim))
       ax[i].set_xscale("log")
     else
-      ax[i].set_xlim(xlim)
+      ax[i].set_xlim(kw.xlim)
     end
     if occursin('y', lowercase(logscale[i]))
-      ax[i].set_ylim(find_limits(pltdata[i], "y", ylim[i]))
+      ax[i].set_ylim(find_limits(pltdata[i], "y", kw.ylim[i]))
       ax[i].set_yscale("log")
     else
-      ax[i].set_ylim(ylim[i])
+      ax[i].set_ylim(kw.ylim[i])
     end
   end
 
@@ -390,7 +372,7 @@ function format_stack(cs, alpha, lc, lt, plot_list...)
 
   # Set transparency
   α = [a.alpha for a in plot_list]
-  alpha < 1 ? α = alpha : α = stats.mean(α)
+  alpha > 0 ? α = alpha : stats.mean(α) > 0 ? α = stats.mean(α) : α = 1
   # Set color scheme
   clr = []; ln = []
   for (i, plt) in enumerate(plot_list)
@@ -405,7 +387,7 @@ function format_stack(cs, alpha, lc, lt, plot_list...)
       l = try lt[i]
       catch
         @warn "Line type not defined for data $i. Using default."
-        sel_ls("default", lc=i)[2]
+        sel_ls("default", lt=i)[2]
       end
     elseif cs==""
       # Use colours from PlotData
@@ -451,23 +433,23 @@ end #function print_stack
 
 
 """
-function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
-  timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
-  axcolour, leg_offset, ti_offset, label_offset, ax_offset,
-  major_xticks, major_yticks, minor_xticks, minor_yticks, mticks, ticksize, framewidth)
+function format_axes_and_annotations(fig, ax, plot_list, xlabel, ylabel,
+  timeformat, timescale, major_interval, minor_interval, fontsize,
+  major_xticks, major_yticks, minor_xticks, minor_yticks, ticksize,
+  framewidth, kw)
 
   # Set plot title
-  ax[1].set_title(ti, fontsize=fontsize+ti_offset)
+  ax[1].set_title(kw.ti, fontsize=fontsize+kw.ti_offset)
 
   # Generate axes labels
-  ax[1].set_xlabel(xlabel,fontsize=fontsize+label_offset)
+  ax[1].set_xlabel(xlabel,fontsize=fontsize+kw.lbl_offset)
   for n = 1:length(ylabel)
-    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+label_offset, color=axcolour[n])
+    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+kw.lbl_offset, color=kw.axcolour[n])
   end
-  [plt.setp(ax[n].get_yticklabels(),color=axcolour[n]) for n = 1:length(axcolour)]
+  [plt.setp(ax[n].get_yticklabels(),color=kw.axcolour[n]) for n = 1:length(kw.axcolour)]
 
   # Set/Unset minor ticks
-  if mticks == true
+  if kw.mticks == true
     plt.minorticks_on()
   else
     plt.minorticks_off()
@@ -475,17 +457,18 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
 
   # Format axes and ticks
   if typeof(plot_list[1][1].x) <: Vector{T} where T <: Real
-    ax = format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
-      ticksize, framewidth, fontsize, ax_offset)
+    ax = format_xdata(plot_list, ax, major_xticks, minor_xticks, kw.mticks,
+      ticksize, framewidth, fontsize)
   else
-    fig, ax = format_timeseries(fig, ax, plot_list, timeformat, timescale, major_interval, minor_interval,
-      major_xticks, minor_xticks, mticks, xlims, ticksize, framewidth, fontsize, ax_offset)
+    fig, ax = format_timeseries(fig, ax, plot_list, timeformat, timescale,
+      major_interval, minor_interval, major_xticks, minor_xticks,
+      ticksize, framewidth, fontsize, kw.xlim)
   end
 
   # Format ticks and frame
   for i = 1:length(plot_list)
     ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
-      labelsize=fontsize+ax_offset, width=framewidth)
+      labelsize=fontsize+kw.tick_offset, width=framewidth)
     ax[i].grid(linestyle=":", linewidth = framewidth)
     ax[i].spines["bottom"].set_linewidth(framewidth)
     ax[i].spines["top"].set_linewidth(framewidth)
@@ -508,11 +491,11 @@ function format_axes_and_annotations(fig, ax, plot_list, ti, xlabel, ylabel,
   if length(ax) > 1
     pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
     plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
-    if any(plab .≠ "") && legpos ≠ "None"
-      ax[2].legend(pleg, plab, fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+    if any(plab .≠ "") && kw.legpos ≠ "None"
+      ax[2].legend(pleg, plab, fontsize=fontsize+kw.leg_offset, loc=kw.legpos, ncol=kw.legcols)
     end
-  elseif legpos ≠ "None" && any([p.label≠"" for p in plot_list[1]])
-    ax[1].legend(fontsize=fontsize+leg_offset, loc=legpos, ncol=legcolumns)
+  elseif kw.legpos ≠ "None" && any([p.label≠"" for p in plot_list[1]])
+    ax[1].legend(fontsize=fontsize+kw.leg_offset, loc=kw.legpos, ncol=kw.legcols)
   end
 
   # Tight layout for plots with big labels
@@ -523,7 +506,7 @@ end #function format_axes_and_annotations
 
 
 function format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
-  ticksize, framewidth, fontsize, ax_offset)
+  ticksize, framewidth, fontsize)
   # Set ticks and optional minor ticks
   if major_xticks > 0
     xint = collect(ax[1].get_xlim()[1]:major_xticks:ax[1].get_xlim()[2])
@@ -547,7 +530,7 @@ function format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
 end #function format_xdata
 
 function format_timeseries(fig, ax, plot_list, timeformat, timescale, major_interval, minor_interval,
-  major_xticks, minor_xticks, mticks, xlims, ticksize, framewidth, fontsize, ax_offset)
+  major_xticks, minor_xticks, ticksize, framewidth, fontsize, xlims)
 
   timeformat, majorlocator, minorlocator, majorformatter, minorformatter =
     set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xticks,
