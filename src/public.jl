@@ -41,52 +41,18 @@ as well as formatting parameters into a new DataType `PlotData` for `PyPlot` plo
   - `Vector{Symbol}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
-function load_PlotData(plotdata::DataFrame; err::String="None",
-         pt::Union{AbstractString,Int64}="None",
-         lt::Union{Tuple{Real,Real},Vector{T} where T<:Real} = Int64[],
-         lc::Union{Nothing,String,Symbol}=nothing, lw::Real=1.4, SF::Real=1,
-         label::AbstractString="", alpha::Real=1, select_cols::Vector{Symbol}=Symbol[])
+function load_PlotData(plotdata::DataFrame; err::String="None", SF::Real=1,
+  label::AbstractString="", alpha::Real=1, select_cols::Vector{Symbol}=Symbol[],
+  kw_aliases...)
 
-  # Make copy of plotdata that can be altered
-  pltdata = deepcopy(plotdata)
-  # (Re-)define column names of DataFrame
-  if isempty(select_cols)
-    DFnames = Symbol[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]
-    pltdata = renameDF(pltdata, DFnames, err)
-  else
-    if length(select_cols) ≠ 6
-      throw(ArgumentError(string("for `select_cols`.\n",
-        "Define all column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, and `xuerr`.")))
-    end
-    DFnames = deepcopy(select_cols)
-  end
+  # Calculate errors and create a PlotData struct
+  pltdata = create_PlotData_with_errors(plotdata, err, SF, select_cols)
 
-  # Calculate error columns depending on choice of `err`
-  pltdata = calc_errors(pltdata, DFnames, err)
-
-  # Scale data
-  for s in DFnames[2:4]
-    try pltdata[s] .*= SF
-    catch; continue
-    end
-  end
-
-  # Save errors
-  errors = []
-  if err ≠ "None"
-    for s in DFnames[3:end]
-      try push!(errors,pltdata[s])
-      catch; push!(errors,nothing)
-      end
-    end
-  else
-    errors = [nothing, nothing, nothing, nothing]
-  end
-
-  # Return PlotData type
-  return PlotData(x = pltdata[DFnames[1]], y = pltdata[DFnames[2]],
-         xuerr = errors[4], xlerr = errors[3], yuerr = errors[2], ylerr = errors[1],
-         label = label, marker = pt, dashes = lt, colour = lc, lw = lw, alpha=alpha)
+  # Modify formats of PlotData from kwargs
+  @show kw_aliases
+  kw, input_kw = def_aliases(kw_aliases...)
+  pltdata = def_PlotDataFormats(pltdata, kw, input_kw, label, alpha)
+  return pltdata
 end #function load_PlotData
 
 
@@ -212,7 +178,7 @@ function plot_data(plot_list::PlotData...;
   kw_aliases...)
 
   # Check kwarg aliases and set default values
-  kw = def_aliases(kw_aliases...)
+  kw, inp = def_aliases(kw_aliases...)
 
   # Check for twin axes and devide datasets
   pltdata, fig, ax, ylabel, logscale, logremove, major_yticks, minor_yticks, kw =
@@ -332,7 +298,7 @@ function plot_stack(plot_list::PlotData...;
   # Make a deepcopy of plot_list to leave original PlotData unaltered
   pltdata = deepcopy(plot_list)
   # Check kwarg aliases and set default values
-  kw = def_aliases(kw_aliases...)
+  kw, inp = def_aliases(kw_aliases...)
   kw = adjust_kwargs(kw)
 
   # Get x and y data

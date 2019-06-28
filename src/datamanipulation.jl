@@ -349,7 +349,8 @@ end #function index2range
 function def_aliases(kw_aliases...)
   # Define all sets of keyword argument aliases
   ti_aliases = (:ti, :title)
-  lt_aliases = (:lt, :ls, :linetype, :linestyle, :line_type, :line_style)
+  lt_aliases = (:lt, :ls, :dt, :linetype, :linestyle, :line_type, :line_style,
+    :dashes, :dashtype)
   pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type)
   lc_aliases = (:lc, :mc, :linecolour, :markercolour, :line_colour, :marker_colour,
     :linecolor, :markercolor, :line_color, :marker_color, :colour, :color)
@@ -377,22 +378,26 @@ function def_aliases(kw_aliases...)
 
   # Find keywords used in the argument list
   kw_args = Dict(kw_aliases)
-  defined_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
+  input_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
   # Define default parameters of type kwargs
   selected_kwargs = kwargs()
+  defined_kwargs = []  # Save list with kwarg fields that have been redefined
   # Overwrite default values with values of argument list
   # and warn of duplicate definitions
-  for (i, kw) in enumerate(defined_kwargs)
-    if length(kw) == 1
+  for (i, kw) in enumerate(input_kwargs)
+    if length(kw) ≥ 1
       setfield!(selected_kwargs, aliases[i][1], kw_args[kw[1]])
-    elseif length(kw) > 1
-      @warn "multiple aliases defined for $(kw[1]); others ignored", kw
-      setfield!(selected_kwargs, aliases[i][1], kw_args[kw[1]])
+      push!(defined_kwargs, aliases[i][1])
+      if length(kw) > 1
+        @warn "multiple aliases defined for $(kw[1]); others ignored", kw
+      end
+    else
+      push!(defined_kwargs, nothing)
     end
   end
 
   # Return final kwargs
-  return selected_kwargs
+  return selected_kwargs, defined_kwargs
 end #function def_aliases
 
 
@@ -401,4 +406,62 @@ function adjust_kwargs(kw)
   kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
   kw.axcolour = ["black"]
   return kw
-end
+end #function adjust_kwargs
+
+
+function create_PlotData_with_errors(plotdata, err, SF, select_cols)
+  # Make copy of plotdata that can be altered
+  pltdata = deepcopy(plotdata)
+  # (Re-)define column names of DataFrame
+  if isempty(select_cols)
+    DFnames = Symbol[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]
+    pltdata = renameDF(pltdata, DFnames, err)
+  else
+    if length(select_cols) ≠ 6
+      throw(ArgumentError(string("for `select_cols`.\n",
+        "Define all column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, and `xuerr`.")))
+    end
+    DFnames = deepcopy(select_cols)
+  end
+
+  # Calculate error columns depending on choice of `err`
+  pltdata = calc_errors(pltdata, DFnames, err)
+
+  # Scale data
+  for s in DFnames[2:4]
+    try pltdata[s] .*= SF
+    catch; continue
+    end
+  end
+
+  # Save errors
+  errors = []
+  if err ≠ "None"
+    for s in DFnames[3:end]
+      try push!(errors,pltdata[s])
+      catch; push!(errors,nothing)
+      end
+    end
+  else
+    errors = [nothing, nothing, nothing, nothing]
+  end
+
+  # Return PlotData type
+  return PlotData(x = pltdata[DFnames[1]], y = pltdata[DFnames[2]],
+    xuerr = errors[4], xlerr = errors[3], yuerr = errors[2], ylerr = errors[1])
+end #function create_PlotData_with_errors
+
+
+function def_PlotDataFormats(pltdata, kw, input_kw, label, alpha)
+  # Loop over fields as used in kwargs and PlotData
+  for (k, p) in zip([:pt, :lt, :lc, :lw], [:marker, :dashes, :colour, :lw])
+    if k in input_kw
+      # Set fields in PlotData if defined in kwargs
+      @show pltdata k p
+      setfield!(pltdata, p, getfield(kw, k))
+    end
+  end
+  pltdata.label = label
+  pltdata.alpha = alpha
+  return pltdata
+end #function def_PlotDataFormats
