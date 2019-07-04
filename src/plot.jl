@@ -196,13 +196,13 @@ function plt_DataWithErrors(pltdata, ax, offset)
   # Loop over graph data and plot each data according to its type and format
   # defined by the struct PlotData
   for i = 1:length(pltdata)
-    if pltdata[i].yuerr ≠ nothing && pltdata[i].marker == "None"
+    if !isempty(pltdata[i].yuerr) && pltdata[i].marker == "None"
       p = ax.plot(pltdata[i].x, pltdata[i].y, lw = pltdata[i].lw,
           dashes=pltdata[i].dashes, color=pltdata[i].colour, label=pltdata[i].label)
       pltdata[i].colour = p[1].get_color()
       ax.fill_between(pltdata[i].x, pltdata[i].ylerr, pltdata[i].yuerr,
           color=pltdata[i].colour, alpha=0.2)
-    elseif pltdata[i].xuerr ≠ nothing && pltdata[i].yuerr ≠ nothing
+    elseif !isempty(pltdata[i].xuerr) && !isempty(pltdata[i].yuerr)
       if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
         ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
           yerr=[yerr[i].lower, yerr[i].upper], fmt=pltdata[i].marker, color=pltdata[i].colour,
@@ -213,7 +213,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
           marker=pltdata[i].marker, dashes=pltdata[i].dashes, color=pltdata[i].colour,
           label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
-    elseif pltdata[i].yuerr ≠ nothing
+    elseif !isempty(pltdata[i].yuerr)
       if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
         ax.errorbar(pltdata[i].x, pltdata[i].y, yerr=[yerr[i].lower, yerr[i].upper],
           fmt=pltdata[i].marker, color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset,
@@ -223,7 +223,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
           lw = pltdata[i].lw, marker=pltdata[i].marker, dashes=pltdata[i].dashes,
           color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
-    elseif pltdata[i].xuerr ≠ nothing
+    elseif !isempty(pltdata[i].xuerr)
       if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
         ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
           lt= "None", marker=pltdata[i].marker,
@@ -296,7 +296,7 @@ function find_limits(pltdata, datacols, lims)
   # Revise minimum, if not pre-defined
   if lims[1] == nothing
     minerr = [getfield(p, low) for p in pltdata]
-    minerr = minerr[minerr.≠nothing]
+    minerr = minerr[@. !isempty(minerr)]
     isempty(minerr) ?
       xmin = minimum(minimum.(coldata)) : xmin = minimum(minimum.(minerr))
     xmin = 10^floor(log10(minimum(xmin)))
@@ -306,7 +306,7 @@ function find_limits(pltdata, datacols, lims)
   # Revise maximum, if not pre-defined
   if lims[2] == nothing
     maxerr = [getfield(p, high) for p in pltdata]
-    maxerr = maxerr[maxerr.≠nothing]
+    maxerr = maxerr[@. !isempty(maxerr)]
     isempty(maxerr) ?
       xmax = maximum(maximum.(coldata)) : xmax = maximum(maximum.(maxerr))
     xmax = 10^ceil(log10(maximum(xmax)))
@@ -458,7 +458,7 @@ function format_axes_and_annotations(fig, ax, plot_list, xlabel, ylabel,
   end
 
   # Format axes and ticks
-  if typeof(plot_list[1][1].x) <: Vector{T} where T <: Real
+  if typeof(plot_list[1][1].x) <: Vector{<:Real}
     ax = format_xdata(plot_list, ax, major_xticks, minor_xticks, kw.mticks,
       ticksize, framewidth, fontsize)
   else

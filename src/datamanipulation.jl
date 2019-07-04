@@ -148,7 +148,7 @@ function redef_err(pltdata,val,low,high)
   err = []
   for i = 1:length(pltdata)
     # Recalculate errors for error bars, if markers are plotted
-    if pltdata[i].marker ≠ "None" && getfield(pltdata[i],high) ≠ nothing
+    if pltdata[i].marker ≠ "None" && !isempty(getfield(pltdata[i],high))
       push!(err, DataFrame(upper = getfield(pltdata[i],high) .- getfield(pltdata[i],val),
             lower = getfield(pltdata[i],val) .- getfield(pltdata[i],low)))
     else
@@ -199,11 +199,11 @@ function rm_log(p, x::String, rel)
   for i = 1:length(p)
     rv = findall(rel.(getfield(p[i], Symbol(x)), 0.))
     pv = getfield(p[i], Symbol(x)); pv[rv] .= 0.
-    if getfield(p[i], Symbol("$(x)lerr")) ≠ nothing
+    if !isempty(getfield(p[i], Symbol("$(x)lerr")))
       rl = findall(rel.(getfield(p[i], Symbol("$(x)lerr")), 0.))
       pl = getfield(p[i], Symbol("$(x)lerr")); pl[rl] .= 0.
     end
-    if getfield(p[i], Symbol("$(x)uerr")) ≠ nothing
+    if !isempty(getfield(p[i], Symbol("$(x)uerr")))
       ru = findall(rel.(getfield(p[i], Symbol("$(x)uerr")), 0.))
       pu = getfield(p[i], Symbol("$(x)uerr")); pu[ru] .= 0.
     end
@@ -380,31 +380,34 @@ function def_aliases(kw_aliases...)
   kw_args = Dict(kw_aliases)
   input_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
   # Define default parameters of type kwargs
-  selected_kwargs = kwargs()
-  defined_kwargs = []  # Save list with kwarg fields that have been redefined
+  refined_kwargs = Dict()
+
   # Overwrite default values with values of argument list
   # and warn of duplicate definitions
   for (i, kw) in enumerate(input_kwargs)
     if length(kw) ≥ 1
-      setfield!(selected_kwargs, aliases[i][1], kw_args[kw[1]])
-      push!(defined_kwargs, aliases[i][1])
+      refined_kwargs[aliases[i][1]] = kw_args[kw[1]]
       if length(kw) > 1
         @warn "multiple aliases defined for $(kw[1]); others ignored", kw
       end
-    else
-      push!(defined_kwargs, nothing)
     end
   end
 
   # Return final kwargs
-  return selected_kwargs, defined_kwargs
+  return refined_kwargs
 end #function def_aliases
 
 
-function adjust_kwargs(kw)
+function adjust_kwargs(kw, pltdata)
   if kw.xlim == nothing  kw.xlim = (nothing, nothing)  end
   kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
   kw.axcolour = ["black"]
+
+  for (i, p) in enumerate(pltdata)
+    if p.colour == nothing
+      p.colour = sel_ls(cs="pyplot", lc=i)[1]
+    end
+  end
   return kw
 end #function adjust_kwargs
 
@@ -439,11 +442,11 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
   if err ≠ "None"
     for s in DFnames[3:end]
       try push!(errors,pltdata[s])
-      catch; push!(errors,nothing)
+      catch; push!(errors,Real[])
       end
     end
   else
-    errors = [nothing, nothing, nothing, nothing]
+    errors = [Real[], Real[], Real[], Real[]]
   end
 
   # Return PlotData type
@@ -452,12 +455,11 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
 end #function create_PlotData_with_errors
 
 
-function def_PlotDataFormats(pltdata, kw, input_kw, label, alpha)
+function def_PlotDataFormats(pltdata, kw, kwdict, label, alpha)
   # Loop over fields as used in kwargs and PlotData
   for (k, p) in zip([:pt, :lt, :lc, :lw], [:marker, :dashes, :colour, :lw])
-    if k in input_kw
+    if k in keys(kwdict)
       # Set fields in PlotData if defined in kwargs
-      @show pltdata k p
       setfield!(pltdata, p, getfield(kw, k))
     end
   end
@@ -465,3 +467,64 @@ function def_PlotDataFormats(pltdata, kw, input_kw, label, alpha)
   pltdata.alpha = alpha
   return pltdata
 end #function def_PlotDataFormats
+
+"""
+
+
+"""
+function def_kwargs(kw; calledby=:other)
+  # Refine type checks before instantiating kwargs with simple type tests
+  if calledby ≠ :load_PlotData && haskey(kw, :lc) && kw[:lc] == nothing
+    throw(ErrorException(
+      "`nothing` in `lc` is only allowed in function `load_PlotData`"))
+  end
+  if calledby == :sel_ls
+    if haskey(kw, :lt) && !(typeof(kw[:lt]) <: Int ||
+      typeof(kw[:lt]) <: Vector{<:Int} || typeof(kw[:lt]) isa UnitRange{Int})
+      throw(ErrorException(
+        "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lt` in function `sel_ls`"))
+    end
+    if haskey(kw, :pt) && !(typeof(kw[:pt]) <: Int ||
+      typeof(kw[:pt]) <: Vector{<:Int} || typeof(kw[:pt]) isa UnitRange{Int})
+      throw(ErrorException(
+        "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `pt` in function `sel_ls`"))
+    end
+    if haskey(kw, :lc) && !(typeof(kw[:lc]) <: Int ||
+      typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) isa UnitRange{Int})
+      throw(ErrorException(
+        "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lc` in function `sel_ls`"))
+    end
+  else
+    if haskey(kw, :lt) && (typeof(kw[:lt]) isa UnitRange || typeof(kw[:lt]) <: Int)
+      throw(ErrorException(
+        "`UnitRange` or `Vector{<:Int}` for `lt` is only allowed in function `sel_ls`"))
+    end
+    if haskey(kw, :pt) && typeof(kw[:pt]) isa UnitRange
+      throw(ErrorException("`UnitRange` for `pt` is only allowed in function `sel_ls`"))
+    end
+    if haskey(kw, :lc) && (typeof(kw[:lc]) isa UnitRange ||
+      typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) <: Int)
+      throw(ErrorException(
+        "`UnitRange`, `Vector{<:Int}` or `Int` for `lc` is only allowed in function `sel_ls`"))
+    end
+  end
+  # Initialise default values that deviate from defaults in kwargs
+  if calledby == :load_PlotData
+    if !haskey(kw, :lc)  kw[:lc] = nothing  end
+    if !haskey(kw, :lt)  kw[:lt] = []  end
+    if !haskey(kw, :pt)  kw[:pt] = "None"  end
+  elseif calledby == :sel_ls
+    if !haskey(kw, :cs)  kw[:cs] = "default"  end
+    if !haskey(kw, :lc)  kw[:lc] = 1  end
+    if !haskey(kw, :lt)  kw[:lt] = 1  end
+    if !haskey(kw, :pt)  kw[:pt] = 0  end
+  end
+
+  # Instantiate and return kwargs
+  kw_args = kwargs()
+  for key in keys(kw)
+    setfield!(kw_args, key, kw[key])
+  end
+
+  return kw_args
+end
