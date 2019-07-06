@@ -37,8 +37,8 @@ as well as formatting parameters into a new DataType `PlotData` for `PyPlot` plo
 + `label` (`AbstractString`): Label for legend
   - `""` (empty string, **default**): no legend label
 + `select_cols` (`Vector{Symbol}`):
-  - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`)
-  - `Vector{Symbol}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
+  - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `y_lower`, `y_upper`, `x_lower`, `x_upper`)
+  - `Vector{Symbol}`: give array with column names for `x`, `y`, `y_lower`, `y_upper`, `x_lower`, `x_upper`
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
 function load_PlotData(plotdata::DataFrame; err::String="None", SF::Real=1,

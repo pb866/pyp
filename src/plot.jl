@@ -153,7 +153,7 @@ function set_style(pltdata, kw)
   # (overwrites default settings from plot_type)
   for i = 1:length(pltdata)  if kw.cs[i]≠""
     for j = 1:length(pltdata[i])
-      cl, dt, mt = sel_ls(kw.cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
+      cl, dt, mt = sel_ls(cs=kw.cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
       pltdata[i][j].colour = cl
       if kw.plottype ≠ "scatter"  pltdata[i][j].dashes = dt  end
       if kw.plottype ≠ "line"  pltdata[i][j].marker = mt  end
@@ -191,18 +191,18 @@ Returns `fig` and `ax` (array of axes) for further plot modifications or printin
 """
 function plt_DataWithErrors(pltdata, ax, offset)
   # Redefine errors for error bars
-  xerr = redef_err(pltdata,:x,:xlerr,:xuerr)
-  yerr = redef_err(pltdata,:y,:ylerr,:yuerr)
+  xerr = redef_err(pltdata,:x,:x_lower,:x_upper)
+  yerr = redef_err(pltdata,:y,:y_lower,:y_upper)
   # Loop over graph data and plot each data according to its type and format
   # defined by the struct PlotData
   for i = 1:length(pltdata)
-    if !isempty(pltdata[i].yuerr) && pltdata[i].marker == "None"
+    if !isempty(pltdata[i].y_upper) && pltdata[i].marker == "None"
       p = ax.plot(pltdata[i].x, pltdata[i].y, lw = pltdata[i].lw,
           dashes=pltdata[i].dashes, color=pltdata[i].colour, label=pltdata[i].label)
       pltdata[i].colour = p[1].get_color()
-      ax.fill_between(pltdata[i].x, pltdata[i].ylerr, pltdata[i].yuerr,
+      ax.fill_between(pltdata[i].x, pltdata[i].y_lower, pltdata[i].y_upper,
           color=pltdata[i].colour, alpha=0.2)
-    elseif !isempty(pltdata[i].xuerr) && !isempty(pltdata[i].yuerr)
+    elseif !isempty(pltdata[i].x_upper) && !isempty(pltdata[i].y_upper)
       if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
         ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
           yerr=[yerr[i].lower, yerr[i].upper], fmt=pltdata[i].marker, color=pltdata[i].colour,
@@ -213,7 +213,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
           marker=pltdata[i].marker, dashes=pltdata[i].dashes, color=pltdata[i].colour,
           label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
-    elseif !isempty(pltdata[i].yuerr)
+    elseif !isempty(pltdata[i].y_upper)
       if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
         ax.errorbar(pltdata[i].x, pltdata[i].y, yerr=[yerr[i].lower, yerr[i].upper],
           fmt=pltdata[i].marker, color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset,
@@ -223,7 +223,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
           lw = pltdata[i].lw, marker=pltdata[i].marker, dashes=pltdata[i].dashes,
           color=pltdata[i].colour, label=pltdata[i].label, capsize=3+offset, alpha=pltdata[i].alpha)
       end
-    elseif !isempty(pltdata[i].xuerr)
+    elseif !isempty(pltdata[i].x_upper)
       if (!isempty(pltdata[i].dashes) && pltdata[i].dashes[1] == 0) || pltdata[i].dashes == "None"
         ax.errorbar(pltdata[i].x, pltdata[i].y, xerr=[xerr[i].lower, xerr[i].upper],
           lt= "None", marker=pltdata[i].marker,
@@ -290,9 +290,9 @@ function find_limits(pltdata, datacols, lims)
 
   # Find log axes and corresponding errors
   ctype = Symbol(datacols)
-  low = Symbol("$(datacols)lerr"); high = Symbol("$(datacols)uerr")
+  low = Symbol("$(datacols)_lower"); high = Symbol("$(datacols)_upper")
   # Get data of log axes
-  coldata = [getfield(p, ctype) for p in pltdata]
+  coldata = [getfield(p, ctype)[isfinite.(getfield(p, ctype))] for p in pltdata]
   # Revise minimum, if not pre-defined
   if lims[1] == nothing
     minerr = [getfield(p, low) for p in pltdata]
@@ -382,13 +382,13 @@ function format_stack(alpha, kw, plot_list...)
       c = try kw.lc[i]
       catch
         @warn "Colour not defined for data $i. Using default."
-        sel_ls("default", lc=i)[1]
+        sel_ls(cs="default", lc=i)[1]
       end
       # Set own stack colours with lc list
       l = try kw.lt[i]
       catch
         @warn "Line type not defined for data $i. Using default."
-        sel_ls("default", lt=i)[2]
+        sel_ls(cs="default", lt=i)[2]
       end
     elseif kw.cs==""
       # Use colours from PlotData
@@ -396,10 +396,10 @@ function format_stack(alpha, kw, plot_list...)
       l = plt.dashes
     else
       # Use colour sccheme define by cs
-      c, l = try sel_ls(kw.cs,lc=i,lt=i)[1:2]
+      c, l = try sel_ls(cs=kw.cs,lc=i,lt=i)[1:2]
       catch
         @warn "Colour scheme $(kw.cs) not defined. Using default."
-        sel_ls("default", lc=i)[1:2]
+        sel_ls(cs="default", lc=i)[1:2]
       end
     end
     push!(clr,c); push!(ln,l)

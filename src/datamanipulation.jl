@@ -199,13 +199,13 @@ function rm_log(p, x::String, rel)
   for i = 1:length(p)
     rv = findall(rel.(getfield(p[i], Symbol(x)), 0.))
     pv = getfield(p[i], Symbol(x)); pv[rv] .= 0.
-    if !isempty(getfield(p[i], Symbol("$(x)lerr")))
-      rl = findall(rel.(getfield(p[i], Symbol("$(x)lerr")), 0.))
-      pl = getfield(p[i], Symbol("$(x)lerr")); pl[rl] .= 0.
+    if !isempty(getfield(p[i], Symbol("$(x)_lower")))
+      rl = findall(rel.(getfield(p[i], Symbol("$(x)_lower")), 0.))
+      pl = getfield(p[i], Symbol("$(x)_lower")); pl[rl] .= 0.
     end
-    if !isempty(getfield(p[i], Symbol("$(x)uerr")))
-      ru = findall(rel.(getfield(p[i], Symbol("$(x)uerr")), 0.))
-      pu = getfield(p[i], Symbol("$(x)uerr")); pu[ru] .= 0.
+    if !isempty(getfield(p[i], Symbol("$(x)_upper")))
+      ru = findall(rel.(getfield(p[i], Symbol("$(x)_upper")), 0.))
+      pu = getfield(p[i], Symbol("$(x)_upper")); pu[ru] .= 0.
     end
   end
 
@@ -417,12 +417,13 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
   pltdata = deepcopy(plotdata)
   # (Re-)define column names of DataFrame
   if isempty(select_cols)
-    DFnames = Symbol[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]
+    DFnames = Symbol[:x, :y, :y_lower, :y_upper, :x_lower, :x_upper]
     pltdata = renameDF(pltdata, DFnames, err)
   else
     if length(select_cols) ≠ 6
       throw(ArgumentError(string("for `select_cols`.\n",
-        "Define all column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, and `xuerr`.")))
+        "Define all column names for `x`, `y`, `y_lower`, `y_upper`, ",
+        "`x_lower`, and `x_upper`.")))
     end
     DFnames = deepcopy(select_cols)
   end
@@ -451,7 +452,7 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
 
   # Return PlotData type
   return PlotData(x = pltdata[DFnames[1]], y = pltdata[DFnames[2]],
-    xuerr = errors[4], xlerr = errors[3], yuerr = errors[2], ylerr = errors[1])
+    x_upper = errors[4], x_lower = errors[3], y_upper = errors[2], y_lower = errors[1])
 end #function create_PlotData_with_errors
 
 

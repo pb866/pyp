@@ -73,7 +73,7 @@ Mutable struct holding information of individual graphs in a plot
 that can be addressed with keyword arguments for the following fields:
 - `x`/`y`: x/y data for plotting, x/y must be vectors of `Real`s (or `DateTime`s for x)
   of same length
-- `xlerr`/`xuerr`/`ylerr`/`yuerr`: upper and lower errors for x and y data,
+- `x_lower`/`x_upper`/`y_lower`/`y_upper`: upper and lower errors for x and y data,
   must either be `nothing` or vector of `Real`s of same length as `x`/`y`
   (default: `nothing`)
 - `label`: `AbstractString` with label for legend (default: `""` – empty String, no entry)
@@ -88,10 +88,10 @@ that can be addressed with keyword arguments for the following fields:
 @par.with_kw mutable struct PlotData
   x::Union{Vector{<:Dates.TimeType}, Vector{<:Real}}
   y::Vector{<:Real}
-  xuerr::Vector{<:Real}=Real[]
-  xlerr::Vector{<:Real}=Real[]
-  yuerr::Vector{<:Real}=Real[]
-  ylerr::Vector{<:Real}=Real[]
+  x_lower::Vector{<:Real}=Real[]
+  x_upper::Vector{<:Real}=Real[]
+  y_lower::Vector{<:Real}=Real[]
+  y_upper::Vector{<:Real}=Real[]
   label::AbstractString=""
   marker::Union{String,Int}="None"
   dashes::lt_type=[]
@@ -100,32 +100,32 @@ that can be addressed with keyword arguments for the following fields:
   alpha::Real=1
 
   function PlotData(x::Union{Vector{<:Dates.TimeType}, Vector{<:Real}},
-    y::Vector{<:Real}, xuerr::Vector{<:Real}=Real[], xlerr::Vector{<:Real}=Real[],
-    yuerr::Vector{<:Real}=Real[], ylerr::Vector{<:Real}=Real[],
+    y::Vector{<:Real}, x_lower::Vector{<:Real}=Real[], x_upper::Vector{<:Real}=Real[],
+    y_lower::Vector{<:Real}=Real[], y_upper::Vector{<:Real}=Real[],
     label::AbstractString="", marker::Union{String,Int}="None",
     dashes::lt_type=[], colour::Union{Nothing,String,Symbol}=nothing,
     lw::Real=1.4, alpha::Real=1)
     if length(x) ≠ length(y)
       throw(ErrorException("`x` and `y` must be vectors of same length"))
     end
-    if !isempty(xuerr) && length(x) ≠ length(xuerr)
-      throw(ErrorException("`x` and `xuerr` must be vectors of same length"))
+    if !isempty(x_lower) && length(x) ≠ length(x_lower)
+      throw(ErrorException("`x` and `x_lower` must be vectors of same length"))
     end
-    if !isempty(xlerr) && length(x) ≠ length(xlerr)
-      throw(ErrorException("`x` and `xlerr` must be vectors of same length"))
+    if !isempty(x_upper) && length(x) ≠ length(x_upper)
+      throw(ErrorException("`x` and `x_upper` must be vectors of same length"))
     end
-    if !isempty(yuerr) && length(x) ≠ length(yuerr)
-      throw(ErrorException("`y` and `yuerr` must be vectors of same length"))
+    if !isempty(y_lower) && length(x) ≠ length(y_lower)
+      throw(ErrorException("`y` and `y_lower` must be vectors of same length"))
     end
-    if !isempty(ylerr) && length(x) ≠ length(ylerr)
-      throw(ErrorException("`y` and `ylerr` must be vectors of same length"))
+    if !isempty(y_upper) && length(x) ≠ length(y_upper)
+      throw(ErrorException("`y` and `y_upper` must be vectors of same length"))
     end
     if dashes isa Vector && !isempty(dashes)
       if !(typeof(dashes) <: Vector{<:Real})
         throw(TypeError(:PlotData, "", Vector{T} where T<:Real, typeof(dashes)))
       end
     end
-    new(x,y,xuerr,xlerr,yuerr,ylerr,label,marker,dashes,colour,lw,alpha)
+    new(x,y,x_lower,x_upper,y_lower,y_upper,label,marker,dashes,colour,lw,alpha)
   end #function PlotData
 end
 
