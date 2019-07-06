@@ -148,7 +148,7 @@ function redef_err(pltdata,val,low,high)
   err = []
   for i = 1:length(pltdata)
     # Recalculate errors for error bars, if markers are plotted
-    if pltdata[i].marker ≠ "None" && getfield(pltdata[i],high) ≠ nothing
+    if pltdata[i].marker ≠ "None" && !isempty(getfield(pltdata[i],high))
       push!(err, DataFrame(upper = getfield(pltdata[i],high) .- getfield(pltdata[i],val),
             lower = getfield(pltdata[i],val) .- getfield(pltdata[i],low)))
     else
@@ -199,13 +199,13 @@ function rm_log(p, x::String, rel)
   for i = 1:length(p)
     rv = findall(rel.(getfield(p[i], Symbol(x)), 0.))
     pv = getfield(p[i], Symbol(x)); pv[rv] .= 0.
-    if getfield(p[i], Symbol("$(x)lerr")) ≠ nothing
-      rl = findall(rel.(getfield(p[i], Symbol("$(x)lerr")), 0.))
-      pl = getfield(p[i], Symbol("$(x)lerr")); pl[rl] .= 0.
+    if !isempty(getfield(p[i], Symbol("$(x)_lower")))
+      rl = findall(rel.(getfield(p[i], Symbol("$(x)_lower")), 0.))
+      pl = getfield(p[i], Symbol("$(x)_lower")); pl[rl] .= 0.
     end
-    if getfield(p[i], Symbol("$(x)uerr")) ≠ nothing
-      ru = findall(rel.(getfield(p[i], Symbol("$(x)uerr")), 0.))
-      pu = getfield(p[i], Symbol("$(x)uerr")); pu[ru] .= 0.
+    if !isempty(getfield(p[i], Symbol("$(x)_upper")))
+      ru = findall(rel.(getfield(p[i], Symbol("$(x)_upper")), 0.))
+      pu = getfield(p[i], Symbol("$(x)_upper")); pu[ru] .= 0.
     end
   end
 
@@ -343,50 +343,189 @@ end #function index2range
 
 
 """
-    checkaliases(args)
 
-Checks that aliases are used correctly without accidental multiple definitions
-for the kw`args` of function `plot_data`.
-"""
-function checkaliases(ti, title, cs, colorscheme, colourscheme,
-  lt, linestyle, linetype, dashes, pt, mt, marker, lc, linecolor, linecolour, color, colour,
-  legpos, legloc, loc)
-
-  ti = checkalias(kwargs = [ti, title], alias = ["ti", "title"], default = "")
-  cs = checkalias(kwargs = [cs, colorscheme, colourscheme],
-    alias = ["cs", "colorscheme", "colourscheme"], default = "")
-  lt = checkalias(kwargs = [lt, linestyle, linetype, dashes],
-    alias = ["lt", "linestyle", "linetype", "dashes"], default = "default")
-  pt = checkalias(kwargs = [pt, mt, marker], alias = ["pt", "mt", "marker"],
-    default = "default")
-  lc = checkalias(kwargs = [lc, linecolor, linecolour, color, colour],
-    alias = ["lc", "linecolor", "linecolour", "color", "colour"], default = "default")
-  legpos = checkalias(kwargs = [legpos, legloc, loc],
-    alias = ["legpos", "legloc", "loc"], default = "best")
-
-  return ti, cs, lt, pt, lc, legpos
-end
 
 """
-    checkalias(;kwargs, alias=[""], default=[""])
+function def_aliases(kw_aliases...)
+  # Define all sets of keyword argument aliases
+  ti_aliases = (:ti, :title)
+  lt_aliases = (:lt, :ls, :dt, :linetype, :linestyle, :line_type, :line_style,
+    :dashes, :dashtype)
+  pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type)
+  lc_aliases = (:lc, :mc, :linecolour, :markercolour, :line_colour, :marker_colour,
+    :linecolor, :markercolor, :line_color, :marker_color, :colour, :color)
+  lw_aliases = (:lw, :linewidth, :line_width)
+  cs_aliases = (:cs, :colourscheme, :colour_scheme, :colorscheme, :color_scheme)
+  plt_aliases = (:plottype, :plot_type)
+  loc_aliases = (:legpos, :loc, :legloc)
+  lcol_aliases = (:legcols, :leg_cols, :legcolumns, :leg_columns,
+    :legendcols, :legend_cols, :legendcolumns, :legend_columns)
+  xlim_aliases = (:xlim, :xlims)
+  ylim_aliases = (:ylim, :ylims)
+  mticks_aliases = (:mticks, :minor_ticks)
+  tioff_aliases = (:ti_offset, :title_offset)
+  lbloff_aliases = (:lbl_offset, :lab_offset, :label_offset,
+    :axlbl_offset, :axlab_offset, :axlabel_offset,
+    :ax_lbl_offset, :ax_lab_offset, :ax_label_offset)
+  legoff_aliases = (:leg_offset, :legend_offset)
+  axoff_aliases = (:tick_offset, :ax_offset, :axes_offset)
+  axclr_aliases = (:axcolour, :ax_colour, :axcolor, :ax_color)
 
-Checks that `kwargs` of a function are used correctly without accidental
-multiple definitions different from the `default` value. Otherwise warns about
-the multiple definitions giving naming the `alias`es with multiple definitions
-and chosing the value of the first kwarg for use in the function.
-"""
-function checkalias(;kwargs, alias=[""], default=[""])
-  setkw = findall(kwargs.≠default)
-  kw = kwargs[setkw]
-  al = alias[setkw]
-  if length(unique(kw)) > 1
-    warning = string("\033[93mMultiple definitions of keyword aliases ",
-      join(al, ", ", " and "), "!\n\33[0m`$(al[1]) = \"$(kw[1])\"` used.")
-    @warn(warning)
-    kwargs[1] = kw[1]
-  elseif length(unique(kw)) == 1
-    kwargs[1] = kw[1]
+  # Combine aliases in an overall tuple
+  aliases = [ti_aliases, lt_aliases, pt_aliases, lc_aliases, lw_aliases, cs_aliases,
+    plt_aliases, loc_aliases, lcol_aliases, xlim_aliases, ylim_aliases, mticks_aliases,
+    tioff_aliases, lbloff_aliases, legoff_aliases, axoff_aliases, axclr_aliases]
+
+  # Find keywords used in the argument list
+  kw_args = Dict(kw_aliases)
+  input_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
+  # Define default parameters of type kwargs
+  refined_kwargs = Dict()
+
+  # Overwrite default values with values of argument list
+  # and warn of duplicate definitions
+  for (i, kw) in enumerate(input_kwargs)
+    if length(kw) ≥ 1
+      refined_kwargs[aliases[i][1]] = kw_args[kw[1]]
+      if length(kw) > 1
+        @warn "multiple aliases defined for $(kw[1]); others ignored", kw
+      end
+    end
   end
 
-  return kwargs[1]
+  # Return final kwargs
+  return refined_kwargs
+end #function def_aliases
+
+
+function adjust_kwargs(kw, pltdata)
+  if kw.xlim == nothing  kw.xlim = (nothing, nothing)  end
+  kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
+  kw.axcolour = ["black"]
+
+  for (i, p) in enumerate(pltdata)
+    if p.colour == nothing
+      p.colour = sel_ls(cs="pyplot", lc=i)[1]
+    end
+  end
+  return kw
+end #function adjust_kwargs
+
+
+function create_PlotData_with_errors(plotdata, err, SF, select_cols)
+  # Make copy of plotdata that can be altered
+  pltdata = deepcopy(plotdata)
+  # (Re-)define column names of DataFrame
+  if isempty(select_cols)
+    DFnames = Symbol[:x, :y, :y_lower, :y_upper, :x_lower, :x_upper]
+    pltdata = renameDF(pltdata, DFnames, err)
+  else
+    if length(select_cols) ≠ 6
+      throw(ArgumentError(string("for `select_cols`.\n",
+        "Define all column names for `x`, `y`, `y_lower`, `y_upper`, ",
+        "`x_lower`, and `x_upper`.")))
+    end
+    DFnames = deepcopy(select_cols)
+  end
+
+  # Calculate error columns depending on choice of `err`
+  pltdata = calc_errors(pltdata, DFnames, err)
+
+  # Scale data
+  for s in DFnames[2:4]
+    try pltdata[s] .*= SF
+    catch; continue
+    end
+  end
+
+  # Save errors
+  errors = []
+  if err ≠ "None"
+    for s in DFnames[3:end]
+      try push!(errors,pltdata[s])
+      catch; push!(errors,Real[])
+      end
+    end
+  else
+    errors = [Real[], Real[], Real[], Real[]]
+  end
+
+  # Return PlotData type
+  return PlotData(x = pltdata[DFnames[1]], y = pltdata[DFnames[2]],
+    x_upper = errors[4], x_lower = errors[3], y_upper = errors[2], y_lower = errors[1])
+end #function create_PlotData_with_errors
+
+
+function def_PlotDataFormats(pltdata, kw, kwdict, label, alpha)
+  # Loop over fields as used in kwargs and PlotData
+  for (k, p) in zip([:pt, :lt, :lc, :lw], [:marker, :dashes, :colour, :lw])
+    if k in keys(kwdict)
+      # Set fields in PlotData if defined in kwargs
+      setfield!(pltdata, p, getfield(kw, k))
+    end
+  end
+  pltdata.label = label
+  pltdata.alpha = alpha
+  return pltdata
+end #function def_PlotDataFormats
+
+"""
+
+
+"""
+function def_kwargs(kw; calledby=:other)
+  # Refine type checks before instantiating kwargs with simple type tests
+  if calledby ≠ :load_PlotData && haskey(kw, :lc) && kw[:lc] == nothing
+    throw(ErrorException(
+      "`nothing` in `lc` is only allowed in function `load_PlotData`"))
+  end
+  if calledby == :sel_ls
+    if haskey(kw, :lt) && !(typeof(kw[:lt]) <: Int ||
+      typeof(kw[:lt]) <: Vector{<:Int} || typeof(kw[:lt]) isa UnitRange{Int})
+      throw(ErrorException(
+        "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lt` in function `sel_ls`"))
+    end
+    if haskey(kw, :pt) && !(typeof(kw[:pt]) <: Int ||
+      typeof(kw[:pt]) <: Vector{<:Int} || typeof(kw[:pt]) isa UnitRange{Int})
+      throw(ErrorException(
+        "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `pt` in function `sel_ls`"))
+    end
+    if haskey(kw, :lc) && !(typeof(kw[:lc]) <: Int ||
+      typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) isa UnitRange{Int})
+      throw(ErrorException(
+        "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lc` in function `sel_ls`"))
+    end
+  else
+    if haskey(kw, :lt) && (typeof(kw[:lt]) isa UnitRange || typeof(kw[:lt]) <: Int)
+      throw(ErrorException(
+        "`UnitRange` or `Vector{<:Int}` for `lt` is only allowed in function `sel_ls`"))
+    end
+    if haskey(kw, :pt) && typeof(kw[:pt]) isa UnitRange
+      throw(ErrorException("`UnitRange` for `pt` is only allowed in function `sel_ls`"))
+    end
+    if haskey(kw, :lc) && (typeof(kw[:lc]) isa UnitRange ||
+      typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) <: Int)
+      throw(ErrorException(
+        "`UnitRange`, `Vector{<:Int}` or `Int` for `lc` is only allowed in function `sel_ls`"))
+    end
+  end
+  # Initialise default values that deviate from defaults in kwargs
+  if calledby == :load_PlotData
+    if !haskey(kw, :lc)  kw[:lc] = nothing  end
+    if !haskey(kw, :lt)  kw[:lt] = []  end
+    if !haskey(kw, :pt)  kw[:pt] = "None"  end
+  elseif calledby == :sel_ls
+    if !haskey(kw, :cs)  kw[:cs] = "default"  end
+    if !haskey(kw, :lc)  kw[:lc] = 1  end
+    if !haskey(kw, :lt)  kw[:lt] = 1  end
+    if !haskey(kw, :pt)  kw[:pt] = 0  end
+  end
+
+  # Instantiate and return kwargs
+  kw_args = kwargs()
+  for key in keys(kw)
+    setfield!(kw_args, key, kw[key])
+  end
+
+  return kw_args
 end

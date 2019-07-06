@@ -23,9 +23,9 @@ as well as formatting parameters into a new DataType `PlotData` for `PyPlot` plo
   - `"factorx"`, `"factory"`, `"factor"` (x/y/x and y ⋅1/err and ⋅err, respectively)
   - `"pmfactorx"`, `"pmfactory"`, `"pmfactor"` (as above with different lower/upper values)
   - `"valuex"`, `"valuey"`, `"value"` (err value directly taken from column)
-+ `pt` (`Union{AbstractString,Int64}`): PyPlot marker type, see e.g. https://matplotlib.org/api/markers_api.html
++ `pt` (`Union{AbstractString,Int}`): PyPlot marker type, see e.g. https://matplotlib.org/api/markers_api.html
   - `"None"` (**default**) to suppress use of markers
-+ `lt` (`Union{String,Tuple{Int64,Int64},Array{Int64,1}}`), tuple or array with
++ `lt` (`Union{String,Tuple{Int,Int},Array{Int,1}}`), tuple or array with
   on/off PyPlot dash definitions
   - empty array means a solid line (**default**)
   - Tuple with 2 entries or array with 4 entries where odd entries are `0` suppresses lines
@@ -37,56 +37,22 @@ as well as formatting parameters into a new DataType `PlotData` for `PyPlot` plo
 + `label` (`AbstractString`): Label for legend
   - `""` (empty string, **default**): no legend label
 + `select_cols` (`Vector{Symbol}`):
-  - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`)
-  - `Vector{Symbol}`: give array with column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, `xuerr`
+  - `Symbol[]` (**default**) (assume columns in the order: `x`, `y`, `y_lower`, `y_upper`, `x_lower`, `x_upper`)
+  - `Vector{Symbol}`: give array with column names for `x`, `y`, `y_lower`, `y_upper`, `x_lower`, `x_upper`
    (give complete list, even if columns are incomplete due to the choice of `err`)
 """
-function load_PlotData(plotdata::DataFrame; err::String="None",
-         pt::Union{AbstractString,Int64}="None",
-         lt::Union{Tuple{Real,Real},Vector{T} where T<:Real} = Int64[],
-         lc::Union{Nothing,String,Symbol}=nothing, lw::Real=1.4, SF::Real=1,
-         label::AbstractString="", alpha::Real=1, select_cols::Vector{Symbol}=Symbol[])
+function load_PlotData(plotdata::DataFrame; err::String="None", SF::Real=1,
+  label::AbstractString="", alpha::Real=1, select_cols::Vector{Symbol}=Symbol[],
+  kw_aliases...)
 
-  # Make copy of plotdata that can be altered
-  pltdata = deepcopy(plotdata)
-  # (Re-)define column names of DataFrame
-  if isempty(select_cols)
-    DFnames = Symbol[:x, :y, :ylerr, :yuerr, :xlerr, :xuerr]
-    pltdata = renameDF(pltdata, DFnames, err)
-  else
-    if length(select_cols) ≠ 6
-      throw(ArgumentError(string("for `select_cols`.\n",
-        "Define all column names for `x`, `y`, `ylerr`, `yuerr`, `xlerr`, and `xuerr`.")))
-    end
-    DFnames = deepcopy(select_cols)
-  end
+  # Calculate errors and create a PlotData struct
+  pltdata = create_PlotData_with_errors(plotdata, err, SF, select_cols)
 
-  # Calculate error columns depending on choice of `err`
-  pltdata = calc_errors(pltdata, DFnames, err)
-
-  # Scale data
-  for s in DFnames[2:4]
-    try pltdata[s] .*= SF
-    catch; continue
-    end
-  end
-
-  # Save errors
-  errors = []
-  if err ≠ "None"
-    for s in DFnames[3:end]
-      try push!(errors,pltdata[s])
-      catch; push!(errors,nothing)
-      end
-    end
-  else
-    errors = [nothing, nothing, nothing, nothing]
-  end
-
-  # Return PlotData type
-  return PlotData(x = pltdata[DFnames[1]], y = pltdata[DFnames[2]],
-         xuerr = errors[4], xlerr = errors[3], yuerr = errors[2], ylerr = errors[1],
-         label = label, marker = pt, dashes = lt, colour = lc, lw = lw, alpha=alpha)
+  # Modify formats of PlotData from kwargs
+  kwdict = def_aliases(kw_aliases...)
+  kw = def_kwargs(kwdict, calledby=:load_PlotData)
+  pltdata = def_PlotDataFormats(pltdata, kw, kwdict, label, alpha)
+  return pltdata
 end #function load_PlotData
 
 
@@ -117,8 +83,8 @@ Keyword arguments for `function plot_data` are:
 + `ti` (`Union{String, LaTeXString}`): Plot title
   - **default:** `""` (empty string) for no title
   - **keyword aliases:** `title`
-+ `twinax` (`Array{Int64,1}`): optional array to devide data into 2 subsets and assign second dataset to a 2. y-axis; use array of `length` of the PlotData with integers `1` and `2` to assign each data to axis 1 and 2
-  (**default:**: empty array `Int64[]`, no 2. y-axis)
++ `twinax` (`Array{Int,1}`): optional array to devide data into 2 subsets and assign second dataset to a 2. y-axis; use array of `length` of the PlotData with integers `1` and `2` to assign each data to axis 1 and 2
+  (**default:**: empty array `Int[]`, no 2. y-axis)
 + `logscale` (`Union{String, Array{String, 1}}`): use `"x"`, `"y"` or `"xy"` to
   set either x-, y- or both axes to a logarithmic scale;
   if 2. y-axis is present, arrays may be used to have different scales on each y-axis;
@@ -151,11 +117,11 @@ Keyword arguments for `function plot_data` are:
   - **keyword aliases:** `mt`, `marker`
 + `alpha`: if alpha is set to a value `> 0` then all graphs will be displayed with this transparency value
 + `mticks` (`Bool`): Switch minor ticks on/off (**default:** `true`)
-+ `minor_xticks` (`Union{Real,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
-+ `minor_yticks` (`Union{Int64, Array{Int64,1}}`):Size of interval between minor y ticks
++ `minor_xticks` (`Union{Real,Vector{Int},Vector{Float64}}`): Size of interval between minor x ticks (**default:** `0` – automatic determination by PyPlot)
++ `minor_yticks` (`Union{Int, Array{Int,1}}`):Size of interval between minor y ticks
   - `0` (**default**): automatic determination by PyPlot
   - If 2. y axis is defined, an array can be used to used different specifications for each axis
-+ `major_xticks`/`major_yticks` (`Union{Real,Vector{Int64},Vector{Float64}}`/`Real`)
++ `major_xticks`/`major_yticks` (`Union{Real,Vector{Int},Vector{Float64}}`/`Real`)
   interval size of major ticks in x- and y-axis, respectively; asign different intervals
   to 2nd y-axis using an array of integers
 + `xlims`/`ylims`: Tuple of minimum/maximum value for each axis
@@ -178,7 +144,7 @@ Keyword arguments for `function plot_data` are:
 + `axcolour` (`Union{String,Array{String,1}}`): colour of y axis label and tick numbers;
   if 2. y axis is defined, different values may be defined in an array for each axis
   (**default:** `"black"`)
-+ `legpos` (`Union{String, Int64}`):
++ `legpos` (`Union{String, Int}`):
   position of the legend; choose from the following options:
   - `"best"` or `0` (default)
   - `"upper right"` or `1`
@@ -192,60 +158,39 @@ Keyword arguments for `function plot_data` are:
   - `"upper center"` or `9`
   - `"center"` or `10`
   - **keyword aliases:** `legloc`, `loc`
-+ `legcolumns` (`Int64`): number of legend columns
++ `legcolumns` (`Int`): number of legend columns
   - **default:** `1`
 """
 function plot_data(plot_list::PlotData...;
-                  xlabel::AbstractString="model time / hours",
-                  ylabel::Union{AbstractString, Vector{T} where T<:AbstractString} =
-                  "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-                  ti::AbstractString="", twinax::Vector{Int}=Int64[],
-                  logscale::Union{String,Vector{T} where T<:String}="",
-                  logremove::Union{String,Vector{T} where T<:String}="neg",
-                  plot_type::String="default", cs::Union{String,Vector{T} where T<:String}="",
-                  lt="default", pt="default",
-                  lc::Union{String,Symbol, Vector{T} where T<:String, Vector{T} where T<:Symbol}="default",
-                  alpha::Real=1, xlims=nothing, ylims=nothing, mticks::Bool=true,
-                  minor_xticks::Union{Real,Vector{Int}}=-1,
-                  major_xticks::Union{Real,Vector{Int}}=-1,
-                  minor_yticks::Union{Real,Vector{T} where T<:Real}=0,
-                  major_yticks::Union{Real,Vector{T} where T<:Real}=0,
-                  timeformat::String="", timescale::String="days",
-                  major_interval::Int=0, minor_interval::Int=0,
-                  figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12,
-                  framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5),
-                  cap_offset::Real=0, ti_offset::Real=4, label_offset::Real=2,
-                  leg_offset::Real=0, ax_offset::Real=0, legcolumns::Int64=1,
-                  legpos::Union{String, Int64, Tuple{Real, Real}}="best",
-                  axcolour::Union{String, Vector{T} where T<:String}="black",
-                  # Aliases:
-                  title::AbstractString="",
-                  colorscheme::Union{String, Vector{T} where T<:String}="",
-                  colourscheme::Union{String, Vector{T} where T<:String}="",
-                  linestyle="default", linetype="default",
-                  dashes="default", mt="default", marker="default",
-                  linecolor::Union{String, Vector{T} where T<:String}="default",
-                  linecolour::Union{String, Vector{T} where T<:String}="default",
-                  color::Union{String, Vector{T} where T<:String}="default",
-                  colour::Union{String, Vector{T} where T<:String}="default",
-                  legloc::Union{String, Int64}="best", loc::Union{String, Int64}="best")
+  xlabel::AbstractString="model time / hours",
+  ylabel::Union{AbstractString, Vector{<:AbstractString}} =
+  "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
+  logscale::Union{String,Vector{<:String}}="",
+  logremove::Union{String,Vector{<:String}}="neg", alpha::Real=0,
+  twinax::Vector{<:Int}=Int[], minor_xticks::Union{Real,Vector{<:Int}}=-1,
+  major_xticks::Union{Real,Vector{<:Int}}=-1,
+  minor_yticks::Union{Real,Vector{<:Real}}=0,
+  major_yticks::Union{Real,Vector{<:Real}}=0,
+  timeformat::String="", timescale::String="days",
+  major_interval::Int=0, minor_interval::Int=0,
+  figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12,
+  framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5), cap_offset::Real=0,
+  kw_aliases...)
 
-  # Check kwarg aliases as set all to the same value
-  ti, cs, lt, pt, lc, legpos = checkaliases(ti, title, cs, colorscheme, colourscheme,
-    lt, linestyle, linetype, pt, mt, marker, dashes, lc, linecolor, linecolour,
-    color, colour, legpos, legloc, loc)
+  # Check kwarg aliases and set default values
+  kwdict = def_aliases(kw_aliases...)
+  kw = def_kwargs(kwdict, calledby=:plot_data)
 
   # Check for twin axes and devide datasets
-  pltdata, fig, ax, ylabel, logscale, logremove, xlimit, ylimit,
-    major_yticks, minor_yticks, cs, lc, lt, pt, axcolour =
-    setup_plot(plot_list, figsize, twinax, ylabel, logscale, logremove, xlims, ylims,
-    major_yticks, minor_yticks, plot_type, cs, lc, lt, pt, alpha, axcolour)
+  pltdata, fig, ax, ylabel, logscale, logremove, major_yticks, minor_yticks, kw =
+    setup_plot(plot_list, figsize, twinax, ylabel, logscale, logremove,
+    major_yticks, minor_yticks, alpha, kw)
 
   # Ensure strictly positive or negative values for log plots
   pltdata = setup_log(pltdata, logremove, logscale)
 
   # set colour scheme and line/marker types
-  pltdata = set_style(pltdata, plot_type, cs, lc, lt, pt)
+  pltdata = set_style(pltdata, kw)
 
   # Plot data and associated errors
   for i = 1:length(pltdata)
@@ -253,14 +198,14 @@ function plot_data(plot_list::PlotData...;
   end
 
   # Define logscales and set axes limits
-  ax = set_axes(pltdata, ax, logscale, xlimit, ylimit)
+  ax = set_axes(pltdata, ax, logscale, kw)
 
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, pltdata, ti, xlabel, ylabel,
-    timeformat, timescale, major_interval, minor_interval, xlimit, fontsize, legpos, legcolumns,
-    axcolour, leg_offset, ti_offset, label_offset, ax_offset, major_xticks, major_yticks,
-    minor_xticks, minor_yticks, mticks, ticksize, framewidth)
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, xlabel, ylabel,
+    timeformat, timescale, major_interval, minor_interval, fontsize,
+    major_xticks, major_yticks, minor_xticks, minor_yticks, ticksize,
+    framewidth, kw)
 
   # Add nothing to ax in case 2nd axis is missing
   if length(ax) < 2  push!(ax, nothing)  end
@@ -306,11 +251,11 @@ keyword arguments are possible.
   - `nothing` may be used for default PyPlot values (**default**)
   - `nothing` may be used for one value within the tuple to use the default, e.g. `ylims = (0, nothing)`
 + `mticks` (`Bool`): Switch minor ticks on/off (**default:** true)
-+ `minor_xticks` (`Union{Real,Vector{Int64},Vector{Float64}}`): Size of interval between minor x ticks
++ `minor_xticks` (`Union{Real,Vector{Int},Vector{Float64}}`): Size of interval between minor x ticks
   (**default:** `0` – automatic determination by PyPlot)
 + `minor_yticks` (`Real`): Size of interval between minor y ticks
   - `0` (**default**): automatic determination by PyPlot
-+ `major_xticks`/`major_yticks` (`Union{Real,Vector{Int64},Vector{Float64}}`/`Real`) interval size of major ticks in x- and y-axis, respectively;
++ `major_xticks`/`major_yticks` (`Union{Real,Vector{Int},Vector{Float64}}`/`Real`) interval size of major ticks in x- and y-axis, respectively;
 + `figsiz` (`Tuple{Real,Real}`): figure size width × height in inches
   (**default:** `(6,4)`)
 + `fntsiz` (`Real`): default font size (**default:** `12`)
@@ -322,7 +267,7 @@ keyword arguments are possible.
   labels, and legend, respectively, from default sizes. Numbers
   (positive or negative) will be added to fontsizes
   (**defaults:** `4`, `2`, `0`)
-+ `legpos` (`Union{String, Int64, Array{String,1}, Array{Int64,1}}`):
++ `legpos` (`Union{String, Int, Array{String,1}, Array{Int,1}}`):
   position of the legend; choose from the following options:
   - `"best"` or `0` (default)
   - `"upper right"` or `1`
@@ -335,46 +280,47 @@ keyword arguments are possible.
   - `"lower center"` or `8`
   - `"upper center"` or `9`
   - `"center"` or `10`
-- `legcolumns` (`Union{Int64, Array{Int64,1}}`): number of legend columns
+- `legcolumns` (`Union{Int, Array{Int,1}}`): number of legend columns
   (**default:** `1`)
 """
 function plot_stack(plot_list::PlotData...;
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-         ti::AbstractString="", logscale::String="", logremove::String="neg",
-         border=0, cs::String="", lt=[], lc=[], alpha::Real=1,
-         xlims=nothing, ylims=nothing, mticks::Bool=true,
+         logscale::String="", logremove::String="neg",
          minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Real = 0,
          major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
          timeformat::String="", timescale::String="days",
          major_interval::Int=0, minor_interval::Int=0,
          figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
-         ticksize::Tuple{Real,Real}=(4.5,2.5), ti_offset::Real=4,
-         label_offset::Real=2, leg_offset::Real=0, ax_offset::Real=0, legcolumns::Int64=1,
-         legpos::Union{String, Int64, Tuple{Real, Real}}="best",
-         interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int64=3)
+         border=0, alpha::Real=0, ticksize::Tuple{Real,Real}=(4.5,2.5),
+         interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int=3,
+         kw_aliases...)
+
+  # Make a deepcopy of plot_list to leave original PlotData unaltered
+  pltdata = deepcopy(plot_list)
+  # Check kwarg aliases and set default values
+  kwdict = def_aliases(kw_aliases...)
+  kw = def_kwargs(kwdict, calledby=:plot_stack)
+  kw = adjust_kwargs(kw, pltdata)
 
   # Get x and y data
-  pltdata = deepcopy(plot_list)
   xdata, ystack, labels = get_stack(pltdata...)
   ystack, ylines = interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
 
   # Format plot, set colour scheme
-  colour, linetype, α = format_stack(cs, alpha, lc, lt, pltdata...)
+  kw, α = format_stack(alpha, kw, pltdata...)
 
   # Plot data as stack with optional boundary lines
-  fig, ax = print_stack(xdata, ystack, ylines, border, labels, colour, linetype, α, figsize)
+  fig, ax = print_stack(xdata, ystack, ylines, border, labels, α, figsize, kw)
 
   # Set axis limits and log scales
-  if xlims == nothing  xlims = (nothing, nothing)  end
-  if ylims == nothing  ylims = (nothing, nothing)  end
-  ax = set_axes([pltdata], [ax], [logscale], xlims, [ylims])
+  ax = set_axes([pltdata], [ax], [logscale], kw)
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], ti, xlabel, [ylabel],
-    timeformat, timescale, major_interval, minor_interval, xlims, fontsize, legpos, legcolumns,
-    ["black"], leg_offset, ti_offset, label_offset, ax_offset, major_xticks, [major_yticks],
-    minor_xticks, [minor_yticks], mticks, ticksize, framewidth)
+  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], xlabel, [ylabel],
+    timeformat, timescale, major_interval, minor_interval, fontsize,
+    major_xticks, [major_yticks], minor_xticks, [minor_yticks], ticksize,
+    framewidth, kw)
 
 
   # Return PyPlot data
@@ -391,9 +337,12 @@ Select colours with index `nc` from a colour scheme with the key word `cs`
 
 Single colours/line types using integers or subsets using unit ranges `m:n` may be used.
 """
-function sel_ls(cs::String="default";lc::Union{Int64,UnitRange{Int64},Vector{Int64}}=1,
-    lt::Union{Int64,UnitRange{Int64},Vector{Int64}}=1,
-    pt::Union{Int64,UnitRange{Int64},Vector{Int64}}=0)
+function sel_ls(; kw_aliases...)
+
+  # Handle kwargs
+  kwdict = def_aliases(kw_aliases...)
+  kw = def_kwargs(kwdict, calledby=:sel_ls)
+
   # Manually define sets of colour schemes
   def = String[
          "black", "red", "blue", "green", "#FF8533",
@@ -410,8 +359,15 @@ function sel_ls(cs::String="default";lc::Union{Int64,UnitRange{Int64},Vector{Int
          "#FF00FF", "#CC0099", "#CC0033", "#CC3300", "#FF470A",
          "#FFA347", "#FFCC99", "#FF9999", "#FF99CC", "#FFFF99",
          "#EEB702", "#AA8C2C", "#6D5A1C", "#B7AD8E", "#E69138"]
+  pyp = String[
+         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+
   # Combine colour schemes in a dataframe
-  colourschemes = Dict{String,Vector{String}}("default"=>def, "source"=>src, "sink"=>snk)
+  colourschemes = Dict{String,Vector{String}}(
+    "default"=>def, "source"=>src, "sink"=>snk, "pyplot"=>pyp)
   # Manually define line types
   dt = [Float64[],Float64[3,2,3,2],Float64[4,1.6,1,1.6,1,1.6],
         Float64[6,2,1,1,1,1,1,2],Float64[1,1.6,1,1.6],Float64[3,1.6,3,1.6,1,1.6],
@@ -429,26 +385,26 @@ function sel_ls(cs::String="default";lc::Union{Int64,UnitRange{Int64},Vector{Int
 
 
   # Save selected colour or subset of colours
-  colours = colourschemes[cs][lc]
+  colours = colourschemes[kw.cs][kw.lc]
   # Save selected line styles
-  if lt == 0
+  if kw.lt == 0
     lines = "None"
-  elseif lt == -1
-    lines = String["None" for dt in colourschemes[cs][lc]]
-  elseif lt == -2
-    lines = String["None" for dt in mt[lc]]
+  elseif kw.lt == -1
+    lines = String["None" for dt in colourschemes[kw.cs][kw.lc]]
+  elseif kw.lt == -2
+    lines = String["None" for dt in mt[kw.lc]]
   else
-    lines = dt[lt]
+    lines = dt[kw.lt]
   end
   # Save selected marker styles
-  if pt == 0
+  if kw.pt == 0
     markers = "None"
-  elseif pt == -1
-    markers = String["None" for dt in colourschemes[cs][lc]]
-  elseif pt == -2
-    markers = String["None" for dt in mt[lc]]
+  elseif kw.pt == -1
+    markers = String["None" for dt in colourschemes[kw.cs][kw.lc]]
+  elseif kw.pt == -2
+    markers = String["None" for dt in mt[kw.lc]]
   else
-    markers = mrk[pt]
+    markers = mrk[kw.pt]
   end
 
   # Return a set of colours/styles depending on the input choice
