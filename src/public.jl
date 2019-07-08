@@ -194,7 +194,7 @@ function plot_data(plot_list::PlotData...;
 
   # Plot data and associated errors
   for i = 1:length(pltdata)
-    pltdata[i], ax[i] = plt_DataWithErrors(pltdata[i], ax[i], cap_offset)
+    pltdata[i], ax[i] = plotDataWithErrors(pltdata[i], ax[i], cap_offset)
   end
 
   # Define logscales and set axes limits
@@ -287,7 +287,7 @@ function plot_stack(plot_list::PlotData...;
          xlabel::AbstractString="model time / hours",
          ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
          logscale::String="", logremove::String="neg",
-         minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Real = 0,
+         minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Union{Real,Vector{Int}} = 0,
          major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
          timeformat::String="", timescale::String="days",
          major_interval::Int=0, minor_interval::Int=0,

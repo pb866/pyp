@@ -181,7 +181,7 @@ end #function set_style
 
 
 """
-    plt_DataWithErrors(pltdata, ax, offset)
+    plotDataWithErrors(pltdata, ax, offset)
 
 For each `PlotData` in array `pltdata` (and `ax`), retrieve the errors in the `PlotData` and
 plot according to specifications. For error bars of markers, the standard cap size is `3`,
@@ -189,7 +189,7 @@ which can be adjusted by an `offset` (positive or negative number to be added to
 
 Returns `fig` and `ax` (array of axes) for further plot modifications or printing.
 """
-function plt_DataWithErrors(pltdata, ax, offset)
+function plotDataWithErrors(pltdata, ax, offset)
   # Redefine errors for error bars
   xerr = redef_err(pltdata,:x,:x_lower,:x_upper)
   yerr = redef_err(pltdata,:y,:y_lower,:y_upper)
@@ -246,7 +246,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
   end
 
   return pltdata, ax
-end #function plt_DataWithErrors
+end #function plotDataWithErrors
 
 
 """
@@ -262,13 +262,13 @@ function set_axes(pltdata, ax, logscale, kw)
   for i = 1:length(logscale)
     if occursin('x', lowercase(logscale[i]))
       ax[i].set_xlim(find_limits(pltdata[i], "x", kw.xlim))
-      ax[i].set_xscale("log")
+      ax[i].set_xscale("symlog")
     else
       ax[i].set_xlim(kw.xlim)
     end
     if occursin('y', lowercase(logscale[i]))
       ax[i].set_ylim(find_limits(pltdata[i], "y", kw.ylim[i]))
-      ax[i].set_yscale("log")
+      ax[i].set_yscale("symlog")
     else
       ax[i].set_ylim(kw.ylim[i])
     end

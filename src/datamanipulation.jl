@@ -83,51 +83,63 @@ function calc_errors(pltdata, col, err)
 
   # ± (factor × value) (adding a percentage range)
   elseif err == "percentx"
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
   elseif err == "pmpercentx"
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅pltdata[col[1]]
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅abs.(pltdata[col[1]])
   elseif err == "percenty"
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
   elseif err == "pmpercenty"
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅pltdata[col[2]]
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅abs.(pltdata[col[2]])
   elseif err == "percent"
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
   elseif err == "pmpercent"
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅pltdata[col[2]]
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅pltdata[col[1]]
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅abs.(pltdata[col[2]])
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅abs.(pltdata[col[1]])
 
   # error × value (adding a factor error range)
   elseif err == "factorx"
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]]
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
   elseif err == "pmfactorx"
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]]
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]][pltdata[col[6]].<1] .= inv.(pltdata[col[6]][pltdata[col[6]].<1])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]].^sign.(pltdata[col[1]])
   elseif err == "factory"
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]]
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
   elseif err == "pmfactory"
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[4]][pltdata[col[4]].<1] .= inv.(pltdata[col[4]][pltdata[col[4]].<1])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]].^sign.(pltdata[col[2]])
   elseif err == "factor"
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]]
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]]
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
   elseif err == "pmfactor"
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]]
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[4]][pltdata[col[4]].<1] .= inv.(pltdata[col[4]][pltdata[col[4]].<1])
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]][pltdata[col[6]].<1] .= inv.(pltdata[col[6]][pltdata[col[6]].<1])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]].^sign.(pltdata[col[2]])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]].^sign.(pltdata[col[1]])
   end
 
   return pltdata

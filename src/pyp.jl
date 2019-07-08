@@ -22,7 +22,7 @@ as well as stacked area plots.
 - calc_errors
 - setup_plot
 - set_style
-- plt_DataWithErrors
+- plotDataWithErrors
 - redef_err
 - set_axes
 - find_limits
