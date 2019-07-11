@@ -161,51 +161,32 @@ Keyword arguments for `function plot_data` are:
 + `legcolumns` (`Int`): number of legend columns
   - **default:** `1`
 """
-function plot_data(plot_list::PlotData...;
-  xlabel::AbstractString="model time / hours",
-  ylabel::Union{AbstractString, Vector{<:AbstractString}} =
-  "concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-  logscale::Union{String,Vector{<:String}}="",
-  logremove::Union{String,Vector{<:String}}="neg", alpha::Real=0,
-  twinax::Vector{<:Int}=Int[], minor_xticks::Union{Real,Vector{<:Int}}=-1,
-  major_xticks::Union{Real,Vector{<:Int}}=-1,
-  minor_yticks::Union{Real,Vector{<:Real}}=0,
-  major_yticks::Union{Real,Vector{<:Real}}=0,
-  timeformat::String="", timescale::String="days",
-  major_interval::Int=0, minor_interval::Int=0,
-  figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12,
-  framewidth::Real=1, ticksize::Tuple{Real,Real}=(4.5,2.5), cap_offset::Real=0,
-  kw_aliases...)
+function plot_data(plot_list::PlotData...; kw_args...)
 
   # Check kwarg aliases and set default values
-  kwdict = def_aliases(kw_aliases...)
+  kwdict = def_aliases(kw_args...)
   kw = def_kwargs(kwdict, calledby=:plot_data)
 
   # Check for twin axes and devide datasets
-  pltdata, fig, ax, ylabel, logscale, logremove, major_yticks, minor_yticks, kw =
-    setup_plot(plot_list, figsize, twinax, ylabel, logscale, logremove,
-    major_yticks, minor_yticks, alpha, kw)
+  pltdata, fig, ax, kw = setup_plot(plot_list, kw)
 
   # Ensure strictly positive or negative values for log plots
-  pltdata = setup_log(pltdata, logremove, logscale)
+  pltdata = setup_log(pltdata, kw)
 
   # set colour scheme and line/marker types
   pltdata = set_style(pltdata, kw)
 
   # Plot data and associated errors
   for i = 1:length(pltdata)
-    pltdata[i], ax[i] = plotDataWithErrors(pltdata[i], ax[i], cap_offset)
+    pltdata[i], ax[i] = plotDataWithErrors(pltdata[i], ax[i], kw.cap_offset)
   end
 
   # Define logscales and set axes limits
-  ax = set_axes(pltdata, ax, logscale, kw)
+  ax = set_axes(pltdata, ax, kw)
 
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, pltdata, xlabel, ylabel,
-    timeformat, timescale, major_interval, minor_interval, fontsize,
-    major_xticks, major_yticks, minor_xticks, minor_yticks, ticksize,
-    framewidth, kw)
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, kw)
 
   # Add nothing to ax in case 2nd axis is missing
   if length(ax) < 2  push!(ax, nothing)  end
@@ -216,7 +197,7 @@ end #function plot_data
 
 
 """
-    plot_stack(plot_list::Union{PlotData,pyp.PlotData}...; \\*\\*kwargs)
+    plot_stack(plot_list::Union{PlotData,pyp.PlotData}...; kwargs...) -> fig, ax
 
 Plot the `PlotData` listed in vararg `plot_list` as a stack plot, where the following
 keyword arguments are possible.
@@ -283,44 +264,30 @@ keyword arguments are possible.
 - `legcolumns` (`Union{Int, Array{Int,1}}`): number of legend columns
   (**default:** `1`)
 """
-function plot_stack(plot_list::PlotData...;
-         xlabel::AbstractString="model time / hours",
-         ylabel::AbstractString="concentration / mlc cm\$^{-3}\$ s\$^{-1}\$",
-         logscale::String="", logremove::String="neg",
-         minor_xticks::Union{Real,Vector{Int}} = -1, minor_yticks::Union{Real,Vector{Int}} = 0,
-         major_xticks::Union{Real,Vector{Int}} = -1, major_yticks::Real = 0,
-         timeformat::String="", timescale::String="days",
-         major_interval::Int=0, minor_interval::Int=0,
-         figsize::Tuple{Real,Real}=(6,4), fontsize::Real=12, framewidth::Real=1,
-         border=0, alpha::Real=0, ticksize::Tuple{Real,Real}=(4.5,2.5),
-         interpolate=0, extrapolate::Union{Bool,String}=false, kspline::Int=3,
-         kw_aliases...)
+function plot_stack(plot_list::PlotData...; kw_args...)
 
   # Make a deepcopy of plot_list to leave original PlotData unaltered
   pltdata = deepcopy(plot_list)
   # Check kwarg aliases and set default values
-  kwdict = def_aliases(kw_aliases...)
+  kwdict = def_aliases(kw_args...)
   kw = def_kwargs(kwdict, calledby=:plot_stack)
   kw = adjust_kwargs(kw, pltdata)
 
   # Get x and y data
   xdata, ystack, labels = get_stack(pltdata...)
-  ystack, ylines = interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
+  ystack, ylines = interpolate_stack(xdata, ystack, kw)
 
   # Format plot, set colour scheme
-  kw, α = format_stack(alpha, kw, pltdata...)
+  kw = format_stack(kw, pltdata...)
 
   # Plot data as stack with optional boundary lines
-  fig, ax = print_stack(xdata, ystack, ylines, border, labels, α, figsize, kw)
+  fig, ax = print_stack(xdata, ystack, ylines, labels, kw)
 
   # Set axis limits and log scales
-  ax = set_axes([pltdata], [ax], [logscale], kw)
+  ax = set_axes([pltdata], [ax], kw)
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], xlabel, [ylabel],
-    timeformat, timescale, major_interval, minor_interval, fontsize,
-    major_xticks, [major_yticks], minor_xticks, [minor_yticks], ticksize,
-    framewidth, kw)
+  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], kw)
 
 
   # Return PyPlot data

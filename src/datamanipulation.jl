@@ -179,20 +179,19 @@ function setup_log(pltdata, logremove::Union{String, Vector{String}}, logscale::
 Depending on the keyword of `logremove`, set all positive or negative values to
 zero in PlotData `pltdata`, if `logscale` is set.
 """
-function setup_log(pltdata, logremove::Union{String, Vector{String}},
-  logscale::Union{String, Vector{String}})
+function setup_log(pltdata, kw::kwargs)
 
   for i = 1:length(pltdata)
-    if logremove[i] == "pos" && occursin("x", logscale[i])
+    if kw.logremove[i] == "pos" && occursin("x", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "x", >)
     end
-    if logremove[i] == "pos" && occursin("y", logscale[i])
+    if kw.logremove[i] == "pos" && occursin("y", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "y", >)
     end
-    if logremove[i] == "neg" && occursin("x", logscale[i])
+    if kw.logremove[i] == "neg" && occursin("x", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "x", <)
     end
-    if logremove[i] == "neg" && occursin("y", logscale[i])
+    if kw.logremove[i] == "neg" && occursin("y", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "y", <)
     end
   end
@@ -225,17 +224,17 @@ function rm_log(p, x::String, rel)
 end
 
 
-function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
+function interpolate_stack(xdata, ystack, kw::kwargs)
   ranges, extraranges = zip(index2range.(ystack)...)
-  if interpolate == "linreg" || interpolate == "linear"
-    interpolate = "spline"
-    kspline = 1
+  if kw.interpolate == "linreg" || kw.interpolate == "linear"
+    kw.interpolate = "spline"
+    kw.kspline = 1
   end
-  if interpolate == "ffill"
+  if kw.interpolate == "ffill"
     for i in 1:length(ranges), j in ranges[i]
       ystack[i][j] .= ystack[i][j[1]-1]
     end
-    if !(extrapolate == false || extrapolate == "None")
+    if !(kw.extrapolate == false || kw.extrapolate == "None")
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
         catch; end
@@ -243,7 +242,7 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
     else
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
     end
-    if extrapolate == "both" || extrapolate == "nearest"
+    if kw.extrapolate == "both" || kw.extrapolate == "nearest"
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
         catch; end
@@ -252,12 +251,12 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
       [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
     end
 
-  elseif interpolate == "bfill"
+  elseif kw.interpolate == "bfill"
 
     for i in 1:length(ranges), j in ranges[i]
       ystack[i][j] .= ystack[i][j[end]+1]
     end
-    if !(extrapolate == false || extrapolate == "None")
+    if !(kw.extrapolate == false || kw.extrapolate == "None")
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
         catch; end
@@ -265,7 +264,7 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
     else
       [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
     end
-    if extrapolate == "both" || extrapolate == "nearest"
+    if kw.extrapolate == "both" || kw.extrapolate == "nearest"
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
         catch; end
@@ -274,12 +273,12 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
     end
 
-  elseif interpolate == "mean"
+  elseif kw.interpolate == "mean"
 
     for i in 1:length(ranges), j in ranges[i]
       ystack[i][j] .= (ystack[i][j[1]-1] .+ ystack[i][j[end]+1]) ./ 2
     end
-    if extrapolate == true || extrapolate == "nearest"
+    if kw.extrapolate == true || kw.extrapolate == "nearest"
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
         catch; end
@@ -293,18 +292,18 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
     end
 
-  elseif interpolate == "spline"
+  elseif kw.interpolate == "spline"
 
     xspl = [xdata[isfinite.(ystack[i])] for i = 1:length(ystack)]
     yspl = [ystack[i][isfinite.(ystack[i])] for i = 1:length(ystack)]
-    if extrapolate == false
-      spline = [spl.Spline1D(xspl[i], yspl[i], bc="zero", k=kspline)
+    if kw.extrapolate == false
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc="zero", k=kw.kspline)
                 for i = 1:length(ystack)]
-    elseif extrapolate == true
-      spline = [spl.Spline1D(xspl[i], yspl[i], bc="extrapolate", k=kspline)
+    elseif kw.extrapolate == true
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc="extrapolate", k=kw.kspline)
                 for i = 1:length(ystack)]
     else
-      spline = [spl.Spline1D(xspl[i], yspl[i], bc=extrapolate, k=kspline)
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc=extrapolate, k=kw.kspline)
                 for i = 1:length(ystack)]
     end
     ystack = [spline[i](xdata) for i = 1:length(ystack)]
@@ -312,11 +311,11 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
   else
 
     for i in 1:length(ranges), j in ranges[i]
-      ystack[i][j] .= interpolate
+      ystack[i][j] .= kw.interpolate
     end
-    if extrapolate == true
-      [ystack[i][extraranges[i][1]] .= interpolate for i in 1:length(extraranges)]
-      [ystack[i][extraranges[i][end]] .= interpolate for i in 1:length(extraranges)]
+    if kw.extrapolate == true
+      [ystack[i][extraranges[i][1]] .= kw.interpolate for i in 1:length(extraranges)]
+      [ystack[i][extraranges[i][end]] .= kw.interpolate for i in 1:length(extraranges)]
     else
       [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
@@ -382,17 +381,28 @@ function def_aliases(kw_aliases...)
   legoff_aliases = (:leg_offset, :legend_offset)
   axoff_aliases = (:tick_offset, :ax_offset, :axes_offset)
   axclr_aliases = (:axcolour, :ax_colour, :axcolor, :ax_color)
+  mxt_aliases = (:xticks, :mxticks, :min_xticks, :minor_xticks)
+  Mxt_aliases = (:Xticks, :Mxticks, :maj_xticks, :major_xticks)
+  myt_aliases = (:yticks, :myticks, :min_yticks, :minor_yticks)
+  Myt_aliases = (:Yticks, :Myticks, :maj_yticks, :major_yticks)
+  α_aliases = (:alpha, :α)
+  fig_aliases = (:figsize, :figuresize)
 
   # Combine aliases in an overall tuple
   aliases = [ti_aliases, lt_aliases, pt_aliases, lc_aliases, lw_aliases, cs_aliases,
     plt_aliases, loc_aliases, lcol_aliases, xlim_aliases, ylim_aliases, mticks_aliases,
-    tioff_aliases, lbloff_aliases, legoff_aliases, axoff_aliases, axclr_aliases]
+    tioff_aliases, lbloff_aliases, legoff_aliases, axoff_aliases, axclr_aliases,
+    mxt_aliases, Mxt_aliases, myt_aliases, Myt_aliases, α_aliases, fig_aliases,
+    # Add remaining kwargs without aliases
+    [:xlabel], [:ylabel], [:timeformat], [:timescale], [:major_interval], [:minor_interval],
+    [:logscale], [:logremove], [:border], [:interpolate], [:extrapolate], [:kspline],
+    [:twinax], [:fontsize], [:framewidth], [:ticksize], [:cap_offset]]
 
   # Find keywords used in the argument list
   kw_args = Dict(kw_aliases)
   input_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
   # Define default parameters of type kwargs
-  refined_kwargs = Dict()
+  refined_kwargs = Dict{Symbol,Any}()
 
   # Overwrite default values with values of argument list
   # and warn of duplicate definitions
@@ -410,10 +420,14 @@ function def_aliases(kw_aliases...)
 end #function def_aliases
 
 
-function adjust_kwargs(kw, pltdata)
+function adjust_kwargs(kw::kwargs, pltdata)
+  kw.ylabel = [kw.ylabel]
   if kw.xlim == nothing  kw.xlim = (nothing, nothing)  end
   kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
   kw.axcolour = ["black"]
+  kw.Yticks = [ kw.Yticks]
+  kw.yticks = [ kw.yticks]
+  kw.logscale = [kw.logscale]
 
   for (i, p) in enumerate(pltdata)
     if p.colour == nothing
@@ -468,7 +482,7 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
 end #function create_PlotData_with_errors
 
 
-function def_PlotDataFormats(pltdata, kw, kwdict, label, alpha)
+function def_PlotDataFormats(pltdata, kw::kwargs, kwdict::Dict{Symbol,Any}, label, alpha)
   # Loop over fields as used in kwargs and PlotData
   for (k, p) in zip([:pt, :lt, :lc, :lw], [:marker, :dashes, :colour, :lw])
     if k in keys(kwdict)
@@ -485,7 +499,7 @@ end #function def_PlotDataFormats
 
 
 """
-function def_kwargs(kw; calledby=:other)
+function def_kwargs(kw::Dict{Symbol,Any}; calledby=:other)
   # Refine type checks before instantiating kwargs with simple type tests
   if calledby ≠ :load_PlotData && haskey(kw, :lc) && kw[:lc] == nothing
     throw(ErrorException(
