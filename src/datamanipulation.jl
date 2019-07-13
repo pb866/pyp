@@ -362,7 +362,7 @@ function def_aliases(kw_aliases...)
   ti_aliases = (:ti, :title)
   lt_aliases = (:lt, :ls, :dt, :linetype, :linestyle, :line_type, :line_style,
     :dashes, :dashtype)
-  pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type)
+  pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type, :marker)
   lc_aliases = (:lc, :mc, :linecolour, :markercolour, :line_colour, :marker_colour,
     :linecolor, :markercolor, :line_color, :marker_color, :colour, :color)
   lw_aliases = (:lw, :linewidth, :line_width)
@@ -501,35 +501,36 @@ end #function def_PlotDataFormats
 """
 function def_kwargs(kw::Dict{Symbol,Any}; calledby=:other)
   # Refine type checks before instantiating kwargs with simple type tests
+  if haskey(kw, :lt)  kw[:lt] = emptyvec(kw[:lt])  end
   if calledby ≠ :load_PlotData && haskey(kw, :lc) && kw[:lc] == nothing
     throw(ErrorException(
       "`nothing` in `lc` is only allowed in function `load_PlotData`"))
   end
   if calledby == :sel_ls
     if haskey(kw, :lt) && !(typeof(kw[:lt]) <: Int ||
-      typeof(kw[:lt]) <: Vector{<:Int} || typeof(kw[:lt]) isa UnitRange{Int})
+      typeof(kw[:lt]) <: Vector{<:Int} || kw[:lt] isa UnitRange{Int})
       throw(ErrorException(
         "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lt` in function `sel_ls`"))
     end
     if haskey(kw, :pt) && !(typeof(kw[:pt]) <: Int ||
-      typeof(kw[:pt]) <: Vector{<:Int} || typeof(kw[:pt]) isa UnitRange{Int})
+      typeof(kw[:pt]) <: Vector{<:Int} || kw[:pt] isa UnitRange{Int})
       throw(ErrorException(
         "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `pt` in function `sel_ls`"))
     end
     if haskey(kw, :lc) && !(typeof(kw[:lc]) <: Int ||
-      typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) isa UnitRange{Int})
+      typeof(kw[:lc]) <: Vector{<:Int} || kw[:lc] isa UnitRange{Int})
       throw(ErrorException(
         "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lc` in function `sel_ls`"))
     end
   else
-    if haskey(kw, :lt) && (typeof(kw[:lt]) isa UnitRange || typeof(kw[:lt]) <: Int)
+    if haskey(kw, :lt) && (kw[:lt] isa UnitRange || typeof(kw[:lt]) <: Int)
       throw(ErrorException(
         "`UnitRange` or `Vector{<:Int}` for `lt` is only allowed in function `sel_ls`"))
     end
-    if haskey(kw, :pt) && typeof(kw[:pt]) isa UnitRange
+    if haskey(kw, :pt) && kw[:pt] isa UnitRange
       throw(ErrorException("`UnitRange` for `pt` is only allowed in function `sel_ls`"))
     end
-    if haskey(kw, :lc) && (typeof(kw[:lc]) isa UnitRange ||
+    if haskey(kw, :lc) && (kw[:lc] isa UnitRange ||
       typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) <: Int)
       throw(ErrorException(
         "`UnitRange`, `Vector{<:Int}` or `Int` for `lc` is only allowed in function `sel_ls`"))
@@ -538,7 +539,7 @@ function def_kwargs(kw::Dict{Symbol,Any}; calledby=:other)
   # Initialise default values that deviate from defaults in kwargs
   if calledby == :load_PlotData
     if !haskey(kw, :lc)  kw[:lc] = nothing  end
-    if !haskey(kw, :lt)  kw[:lt] = []  end
+    if !haskey(kw, :lt)  kw[:lt] = Real[]  end
     if !haskey(kw, :pt)  kw[:pt] = "None"  end
   elseif calledby == :sel_ls
     if !haskey(kw, :cs)  kw[:cs] = "default"  end
@@ -552,6 +553,115 @@ function def_kwargs(kw::Dict{Symbol,Any}; calledby=:other)
   for key in keys(kw)
     setfield!(kw_args, key, kw[key])
   end
+  kwargscheck(kw_args.ylabel, kw_args.lt, kw_args.pt, kw_args.lc, kw_args.cs,
+    kw_args.ylim, kw_args.Yticks, kw_args.yticks, kw_args.logscale,
+    kw_args.logremove, kw_args.axcolour, kw_args.twinax)
 
   return kw_args
 end
+
+
+function kwargscheck(ylabel::Union{AbstractString, Vector{<:AbstractString}},
+  lt::lt_type, pt::Union{String,Int,UnitRange{Int},Vector}, lc::lc_type,
+  cs::Union{String,Vector{<:String}}, ylim, Yticks::Union{Real,Vector{<:Real}},
+  yticks::Union{Real,Vector{<:Real}}, logscale::Union{String,Vector{<:String}},
+  logremove::Union{String,Vector{<:String}},
+  axcolour::Union{String,Symbol,Vector}, twinax::Vector{<:Int})
+
+  if ylabel isa Vector && (isempty(twinax) || length(ylabel) ≠ 2)
+    throw(DefinitionError(length(ylabel)))
+  end
+  if cs isa Vector && (isempty(twinax) || length(cs) ≠ 2)
+    throw(DefinitionError(length(cs)))
+  end
+  if ylim isa Vector
+    if isempty(twinax) || length(ylim) ≠ 2
+      throw(DefinitionError(length(ylim)))
+    elseif !all([types <: limtype for types in typeof.(ylim)])
+      throw(DefinitionError(
+        "`ylim` must be a vector with `limtype` objects", typeof(ylim)))
+    end
+  end
+  if Yticks isa Vector && (isempty(twinax) || length(Yticks) ≠ 2)
+    throw(DefinitionError(length(Yticks)))
+  end
+  if yticks isa Vector && (isempty(twinax) || length(yticks) ≠ 2)
+    throw(DefinitionError(length(yticks)))
+  end
+  if logscale isa Vector && (isempty(twinax) || length(logscale) ≠ 2)
+    throw(DefinitionError(length(logscale)))
+  end
+  if logremove isa Vector && (isempty(twinax) || length(logremove) ≠ 2)
+    throw(DefinitionError(length(logremove)))
+  end
+  if axcolour isa Vector
+    if isempty(twinax) || length(axcolour) ≠ 2
+      throw(DefinitionError(length(axcolour)))
+    elseif !all([types in DataType[String, Symbol] for types in typeof.(axcolour)])
+      throw(DefinitionError(
+        "`axcolour` must be a vector with `String` and/or `Symbol` objects",
+        typeof(axcolour)))
+    end
+  end
+end #function kwargscheck
+
+
+function vectorcheck(kw, len)
+  if typeof(kw.lt)<:Vector{<:Real}
+    if isodd(length(kw.lt)) || 0 < length(kw.lt) < 4
+      throw(DefinitionError(
+        "`lt` must be a vector with an even number of at least 4 elements; length(lt) =",
+        length(kw.lt)))
+    end
+  elseif kw.lt isa Vector
+    for (i, el) in enumerate(kw.lt)
+      if !(typeof(el) <: Vector{<:Real} || el isa Tuple{Real,Real})
+        throw(DefinitionError(
+          string("`lt` must be a vector of `Vector{<:Real}` or `Tuple{Real,Real}` elements; ",
+            "DataType of $i. element = "), typeof(kw.lt)))
+      elseif el isa Vector && (isodd(length(el)) || 0 < length(el) < 4)
+        throw(DefinitionError(
+          string("`lt` must be a vector with an even number of at least 4 elements; ",
+            "length(lt) in $i. element = "), length(el)))
+      end
+    end
+    if length(kw.lt) ≠ len
+      throw(DefinitionError("length of `lt` and `PlotData` must be the same; length(lt) = ",
+        length(kw.lt)))
+    end
+  end
+  if kw.pt isa Vector
+    if length(kw.pt) ≠ len
+      throw(DefinitionError("length of `pt` and `PlotData` must be the same; length(pt) = ",
+        length(kw.pt)))
+    elseif !all([types in DataType[String, Int] for types in typeof.(kw.pt)])
+      throw(DefinitionError(
+        "`pt` must be a vector with `String` and/or `Int` objects", typeof(kw.pt)))
+    end
+  end
+  if kw.lc isa Vector
+    if length(kw.lc) ≠ len
+      throw(DefinitionError("length of `lc` and `PlotData` must be the same; length(lc) = ",
+        length(kw.lc)))
+    elseif !all([types in DataType[String, Symbol] for types in typeof.(kw.lc)])
+      throw(DefinitionError(
+        "`lc` must be a vector with `String` and/or `Symbol` objects", typeof(kw.lc)))
+    end
+  end
+end
+
+
+function emptyvec(vec, dt::DataType=Real)
+  if vec isa Vector && isempty(vec)
+    print("if")
+    vec = dt[]
+  elseif vec isa Vector
+    v = []
+    [el isa Vector && isempty(el) ? push!(v, dt[]) : push!(v, el) for el in vec]
+    vec = v
+  end
+
+  return vec
+end #function emptyvec
+
+lt = emptyvec([[], [2.0,3], (2,3), "a"])

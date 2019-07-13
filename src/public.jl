@@ -166,6 +166,7 @@ function plot_data(plot_list::PlotData...; kw_args...)
   # Check kwarg aliases and set default values
   kwdict = def_aliases(kw_args...)
   kw = def_kwargs(kwdict, calledby=:plot_data)
+  vectorcheck(kw, length(plot_list))
 
   # Check for twin axes and devide datasets
   pltdata, fig, ax, kw = setup_plot(plot_list, kw)

@@ -127,14 +127,14 @@ function set_style(pltdata, kw::kwargs)
   # if plot_type is set to line, scatter or both (markers connected by lines)
   for i = 1:length(pltdata)
     if kw.plottype == "line"
-      [pltdata[i][j].dashes = Int64[] for j = 1:length(kw.lt[i])]
+      [pltdata[i][j].dashes = Real[] for j = 1:length(kw.lt[i]) if pltdata[i][j].dashes=="None"]
       [pltdata[i][j].marker = "None" for j = 1:length(kw.pt[i])]
     elseif kw.plottype == "scatter"
       [pltdata[i][j].dashes = "None" for j = 1:length(kw.lt[i])]
-      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i])]
+      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i]) if pltdata[i][j].marker=="None"]
     elseif kw.plottype == "both"
-      [pltdata[i][j].dashes = Int64[] for j = 1:length(kw.lt[i])]
-      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i])]
+      [pltdata[i][j].dashes = Real[] for j = 1:length(kw.lt[i]) if pltdata[i][j].dashes=="None"]
+      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i]) if pltdata[i][j].marker=="None"]
     end
   end
 
@@ -143,7 +143,7 @@ function set_style(pltdata, kw::kwargs)
   idx = []
   push!(idx, [i for i = 1:length(pltdata[1])])
   if length(kw.cs) == 2
-    kw.cs[1] == kw.cs[2] ? ind = length(idx[1]) : ind = 0
+    ind = kw.cs[1] == kw.cs[2] ? length(idx[1]) : 0
     push!(idx, [i+ind for i = 1:length(pltdata[2])])
   end
   # Set line/marker styles and colour for a chosen colour scheme
@@ -151,23 +151,27 @@ function set_style(pltdata, kw::kwargs)
   for i = 1:length(pltdata)  if kw.cs[i]≠""
     for j = 1:length(pltdata[i])
       cl, dt, mt = sel_ls(cs=kw.cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
-      pltdata[i][j].colour = cl
-      if kw.plottype ≠ "scatter"  pltdata[i][j].dashes = dt  end
-      if kw.plottype ≠ "line"  pltdata[i][j].marker = mt  end
+      if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = cl  end
+      if kw.plottype ≠ "scatter" && kw.lt[i][j] ≠ "default"  pltdata[i][j].dashes = dt  end
+      if kw.plottype ≠ "line" && kw.pt[i][j] ≠ "default"  pltdata[i][j].marker = mt  end
     end
   end  end
 
   # Set manually defined styles (overwrites previous settings)
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = kw.lc[i][j]  end
+    if !(kw.lc[i][j]=="" || kw.lc[i][j]=="default")
+      pltdata[i][j].colour = kw.lc[i][j]
+    elseif isnothing(pltdata[i][j].colour)
+      pltdata[i][j].colour = sel_ls(cs="pyplot", lc=idx[i][j])[1]
+    end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.lt[i][j] ≠ "default" && pltdata[i][j].dashes ≠ "None"
+    if !(kw.lt[i][j]=="" || kw.lt[i][j]=="default") && pltdata[i][j].dashes ≠ "None"
       pltdata[i][j].dashes = kw.lt[i][j]
     end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.pt[i][j] ≠ "default" && pltdata[i][j].dashes ≠ "None"
+    if !(kw.pt[i][j]=="" || kw.pt[i][j]=="default") && pltdata[i][j].dashes ≠ "None"
       pltdata[i][j].marker = kw.pt[i][j]
     end
   end
