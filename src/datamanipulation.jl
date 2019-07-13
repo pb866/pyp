@@ -83,51 +83,63 @@ function calc_errors(pltdata, col, err)
 
   # ± (factor × value) (adding a percentage range)
   elseif err == "percentx"
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
   elseif err == "pmpercentx"
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅pltdata[col[1]]
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅abs.(pltdata[col[1]])
   elseif err == "percenty"
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
   elseif err == "pmpercenty"
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅pltdata[col[2]]
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅abs.(pltdata[col[2]])
   elseif err == "percent"
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
   elseif err == "pmpercent"
-    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅pltdata[col[2]]
-    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅pltdata[col[2]]
-    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅pltdata[col[1]]
-    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅pltdata[col[1]]
+    pltdata[col[3]] = pltdata[col[2]] .- pltdata[col[3]].⋅abs.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .+ pltdata[col[4]].⋅abs.(pltdata[col[2]])
+    pltdata[col[5]] = pltdata[col[1]] .- pltdata[col[5]].⋅abs.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .+ pltdata[col[6]].⋅abs.(pltdata[col[1]])
 
   # error × value (adding a factor error range)
   elseif err == "factorx"
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]]
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
   elseif err == "pmfactorx"
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]]
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]][pltdata[col[6]].<1] .= inv.(pltdata[col[6]][pltdata[col[6]].<1])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]].^sign.(pltdata[col[1]])
   elseif err == "factory"
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]]
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
   elseif err == "pmfactory"
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[4]][pltdata[col[4]].<1] .= inv.(pltdata[col[4]][pltdata[col[4]].<1])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]].^sign.(pltdata[col[2]])
   elseif err == "factor"
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]]
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]]
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
   elseif err == "pmfactor"
-    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]]
-    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]]
-    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]]
-    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]]
+    pltdata[col[3]][pltdata[col[3]].<1] .= inv.(pltdata[col[3]][pltdata[col[3]].<1])
+    pltdata[col[4]][pltdata[col[4]].<1] .= inv.(pltdata[col[4]][pltdata[col[4]].<1])
+    pltdata[col[5]][pltdata[col[5]].<1] .= inv.(pltdata[col[5]][pltdata[col[5]].<1])
+    pltdata[col[6]][pltdata[col[6]].<1] .= inv.(pltdata[col[6]][pltdata[col[6]].<1])
+    pltdata[col[3]] = pltdata[col[2]] .⋅ 1.0./pltdata[col[3]].^sign.(pltdata[col[2]])
+    pltdata[col[4]] = pltdata[col[2]] .⋅ pltdata[col[4]].^sign.(pltdata[col[2]])
+    pltdata[col[5]] = pltdata[col[1]] .⋅ 1.0./pltdata[col[5]].^sign.(pltdata[col[1]])
+    pltdata[col[6]] = pltdata[col[1]] .⋅ pltdata[col[6]].^sign.(pltdata[col[1]])
   end
 
   return pltdata
@@ -167,20 +179,19 @@ function setup_log(pltdata, logremove::Union{String, Vector{String}}, logscale::
 Depending on the keyword of `logremove`, set all positive or negative values to
 zero in PlotData `pltdata`, if `logscale` is set.
 """
-function setup_log(pltdata, logremove::Union{String, Vector{String}},
-  logscale::Union{String, Vector{String}})
+function setup_log(pltdata, kw::kwargs)
 
   for i = 1:length(pltdata)
-    if logremove[i] == "pos" && occursin("x", logscale[i])
+    if kw.logremove[i] == "pos" && occursin("x", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "x", >)
     end
-    if logremove[i] == "pos" && occursin("y", logscale[i])
+    if kw.logremove[i] == "pos" && occursin("y", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "y", >)
     end
-    if logremove[i] == "neg" && occursin("x", logscale[i])
+    if kw.logremove[i] == "neg" && occursin("x", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "x", <)
     end
-    if logremove[i] == "neg" && occursin("y", logscale[i])
+    if kw.logremove[i] == "neg" && occursin("y", kw.logscale[i])
       pltdata[i] = rm_log(pltdata[i], "y", <)
     end
   end
@@ -213,17 +224,17 @@ function rm_log(p, x::String, rel)
 end
 
 
-function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
+function interpolate_stack(xdata, ystack, kw::kwargs)
   ranges, extraranges = zip(index2range.(ystack)...)
-  if interpolate == "linreg" || interpolate == "linear"
-    interpolate = "spline"
-    kspline = 1
+  if kw.interpolate == "linreg" || kw.interpolate == "linear"
+    kw.interpolate = "spline"
+    kw.kspline = 1
   end
-  if interpolate == "ffill"
+  if kw.interpolate == "ffill"
     for i in 1:length(ranges), j in ranges[i]
       ystack[i][j] .= ystack[i][j[1]-1]
     end
-    if !(extrapolate == false || extrapolate == "None")
+    if !(kw.extrapolate == false || kw.extrapolate == "None")
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
         catch; end
@@ -231,7 +242,7 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
     else
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
     end
-    if extrapolate == "both" || extrapolate == "nearest"
+    if kw.extrapolate == "both" || kw.extrapolate == "nearest"
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
         catch; end
@@ -240,12 +251,12 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
       [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
     end
 
-  elseif interpolate == "bfill"
+  elseif kw.interpolate == "bfill"
 
     for i in 1:length(ranges), j in ranges[i]
       ystack[i][j] .= ystack[i][j[end]+1]
     end
-    if !(extrapolate == false || extrapolate == "None")
+    if !(kw.extrapolate == false || kw.extrapolate == "None")
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
         catch; end
@@ -253,7 +264,7 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
     else
       [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
     end
-    if extrapolate == "both" || extrapolate == "nearest"
+    if kw.extrapolate == "both" || kw.extrapolate == "nearest"
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][end]] .= ystack[i][extraranges[i][end][1]-1]
         catch; end
@@ -262,12 +273,12 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
     end
 
-  elseif interpolate == "mean"
+  elseif kw.interpolate == "mean"
 
     for i in 1:length(ranges), j in ranges[i]
       ystack[i][j] .= (ystack[i][j[1]-1] .+ ystack[i][j[end]+1]) ./ 2
     end
-    if extrapolate == true || extrapolate == "nearest"
+    if kw.extrapolate == true || kw.extrapolate == "nearest"
       for i in 1:length(extraranges)
         try ystack[i][extraranges[i][1]] .= ystack[i][extraranges[i][1][end]+1]
         catch; end
@@ -281,18 +292,18 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
     end
 
-  elseif interpolate == "spline"
+  elseif kw.interpolate == "spline"
 
     xspl = [xdata[isfinite.(ystack[i])] for i = 1:length(ystack)]
     yspl = [ystack[i][isfinite.(ystack[i])] for i = 1:length(ystack)]
-    if extrapolate == false
-      spline = [spl.Spline1D(xspl[i], yspl[i], bc="zero", k=kspline)
+    if kw.extrapolate == false
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc="zero", k=kw.kspline)
                 for i = 1:length(ystack)]
-    elseif extrapolate == true
-      spline = [spl.Spline1D(xspl[i], yspl[i], bc="extrapolate", k=kspline)
+    elseif kw.extrapolate == true
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc="extrapolate", k=kw.kspline)
                 for i = 1:length(ystack)]
     else
-      spline = [spl.Spline1D(xspl[i], yspl[i], bc=extrapolate, k=kspline)
+      spline = [spl.Spline1D(xspl[i], yspl[i], bc=extrapolate, k=kw.kspline)
                 for i = 1:length(ystack)]
     end
     ystack = [spline[i](xdata) for i = 1:length(ystack)]
@@ -300,11 +311,11 @@ function interpolate_stack(xdata, ystack, interpolate, extrapolate, kspline)
   else
 
     for i in 1:length(ranges), j in ranges[i]
-      ystack[i][j] .= interpolate
+      ystack[i][j] .= kw.interpolate
     end
-    if extrapolate == true
-      [ystack[i][extraranges[i][1]] .= interpolate for i in 1:length(extraranges)]
-      [ystack[i][extraranges[i][end]] .= interpolate for i in 1:length(extraranges)]
+    if kw.extrapolate == true
+      [ystack[i][extraranges[i][1]] .= kw.interpolate for i in 1:length(extraranges)]
+      [ystack[i][extraranges[i][end]] .= kw.interpolate for i in 1:length(extraranges)]
     else
       [ystack[i][extraranges[i][1]] .= 0 for i in 1:length(extraranges)]
       [ystack[i][extraranges[i][end]] .= 0 for i in 1:length(extraranges)]
@@ -346,12 +357,12 @@ end #function index2range
 
 
 """
-function def_aliases(kw_aliases...)
+function def_aliases(kw_aliases)
   # Define all sets of keyword argument aliases
   ti_aliases = (:ti, :title)
   lt_aliases = (:lt, :ls, :dt, :linetype, :linestyle, :line_type, :line_style,
     :dashes, :dashtype)
-  pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type)
+  pt_aliases = (:pt, :mt, :pointtype, :point_type, :marker_type, :marker_type, :marker)
   lc_aliases = (:lc, :mc, :linecolour, :markercolour, :line_colour, :marker_colour,
     :linecolor, :markercolor, :line_color, :marker_color, :colour, :color)
   lw_aliases = (:lw, :linewidth, :line_width)
@@ -370,11 +381,22 @@ function def_aliases(kw_aliases...)
   legoff_aliases = (:leg_offset, :legend_offset)
   axoff_aliases = (:tick_offset, :ax_offset, :axes_offset)
   axclr_aliases = (:axcolour, :ax_colour, :axcolor, :ax_color)
+  mxt_aliases = (:xticks, :mxticks, :min_xticks, :minor_xticks)
+  Mxt_aliases = (:Xticks, :Mxticks, :maj_xticks, :major_xticks)
+  myt_aliases = (:yticks, :myticks, :min_yticks, :minor_yticks)
+  Myt_aliases = (:Yticks, :Myticks, :maj_yticks, :major_yticks)
+  α_aliases = (:alpha, :α)
+  fig_aliases = (:figsize, :figuresize)
 
   # Combine aliases in an overall tuple
   aliases = [ti_aliases, lt_aliases, pt_aliases, lc_aliases, lw_aliases, cs_aliases,
     plt_aliases, loc_aliases, lcol_aliases, xlim_aliases, ylim_aliases, mticks_aliases,
-    tioff_aliases, lbloff_aliases, legoff_aliases, axoff_aliases, axclr_aliases]
+    tioff_aliases, lbloff_aliases, legoff_aliases, axoff_aliases, axclr_aliases,
+    mxt_aliases, Mxt_aliases, myt_aliases, Myt_aliases, α_aliases, fig_aliases,
+    # Add remaining kwargs without aliases
+    [:xlabel], [:ylabel], [:timeformat], [:timescale], [:major_interval], [:minor_interval],
+    [:logscale], [:logremove], [:border], [:interpolate], [:extrapolate], [:kspline],
+    [:twinax], [:fontsize], [:framewidth], [:ticksize], [:cap_offset]]
 
   # Find keywords used in the argument list
   kw_args = Dict(kw_aliases)
@@ -398,10 +420,24 @@ function def_aliases(kw_aliases...)
 end #function def_aliases
 
 
-function adjust_kwargs(kw, pltdata)
+function adjust_kwargs(kw::kwargs, pltdata)
+  kw.ylabel = [kw.ylabel]
   if kw.xlim == nothing  kw.xlim = (nothing, nothing)  end
   kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
   kw.axcolour = ["black"]
+  kw.Yticks = [kw.Yticks]
+  kw.yticks = [kw.yticks]
+  kw.logscale = [kw.logscale]
+  kw.lt isa String || kw.lt isa Tuple{Real,Real} || typeof(kw.lt) <: Vector{<:Real} ?
+    kw.lt = [[kw.lt for l in pltdata]] : kw.lt = [kw.lt]
+  kw.lc isa String || kw.lc isa Symbol ?
+    kw.lc = [[kw.lc for l in pltdata]] : kw.lc = [kw.lc]
+  kw.pt = [["default" for p in pltdata]]
+  if kw.cs isa String  kw.cs = [kw.cs]  end
+  if kw.alpha == 0
+    α = [a.alpha for a in pltdata]
+    kw.alpha = stats.mean(α) > 0 ? stats.mean(α) : 1
+  end
 
   for (i, p) in enumerate(pltdata)
     if p.colour == nothing
@@ -456,7 +492,7 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
 end #function create_PlotData_with_errors
 
 
-function def_PlotDataFormats(pltdata, kw, kwdict, label, alpha)
+function def_PlotDataFormats(pltdata, kw::kwargs, kwdict::Dict, label, alpha)
   # Loop over fields as used in kwargs and PlotData
   for (k, p) in zip([:pt, :lt, :lc, :lw], [:marker, :dashes, :colour, :lw])
     if k in keys(kwdict)
@@ -473,37 +509,38 @@ end #function def_PlotDataFormats
 
 
 """
-function def_kwargs(kw; calledby=:other)
+function def_kwargs(kw::Dict; calledby=:other)
   # Refine type checks before instantiating kwargs with simple type tests
+  if haskey(kw, :lt)  kw[:lt] = vectype(kw[:lt])  end
   if calledby ≠ :load_PlotData && haskey(kw, :lc) && kw[:lc] == nothing
     throw(ErrorException(
       "`nothing` in `lc` is only allowed in function `load_PlotData`"))
   end
   if calledby == :sel_ls
     if haskey(kw, :lt) && !(typeof(kw[:lt]) <: Int ||
-      typeof(kw[:lt]) <: Vector{<:Int} || typeof(kw[:lt]) isa UnitRange{Int})
+      typeof(kw[:lt]) <: Vector{<:Int} || kw[:lt] isa UnitRange{Int})
       throw(ErrorException(
         "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lt` in function `sel_ls`"))
     end
     if haskey(kw, :pt) && !(typeof(kw[:pt]) <: Int ||
-      typeof(kw[:pt]) <: Vector{<:Int} || typeof(kw[:pt]) isa UnitRange{Int})
+      typeof(kw[:pt]) <: Vector{<:Int} || kw[:pt] isa UnitRange{Int})
       throw(ErrorException(
         "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `pt` in function `sel_ls`"))
     end
     if haskey(kw, :lc) && !(typeof(kw[:lc]) <: Int ||
-      typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) isa UnitRange{Int})
+      typeof(kw[:lc]) <: Vector{<:Int} || kw[:lc] isa UnitRange{Int})
       throw(ErrorException(
         "only `Int`, `Vector{<:Int}` or `UnitRange{Int}` allowed for `lc` in function `sel_ls`"))
     end
   else
-    if haskey(kw, :lt) && (typeof(kw[:lt]) isa UnitRange || typeof(kw[:lt]) <: Int)
+    if haskey(kw, :lt) && (kw[:lt] isa UnitRange || typeof(kw[:lt]) <: Int)
       throw(ErrorException(
         "`UnitRange` or `Vector{<:Int}` for `lt` is only allowed in function `sel_ls`"))
     end
-    if haskey(kw, :pt) && typeof(kw[:pt]) isa UnitRange
+    if haskey(kw, :pt) && kw[:pt] isa UnitRange
       throw(ErrorException("`UnitRange` for `pt` is only allowed in function `sel_ls`"))
     end
-    if haskey(kw, :lc) && (typeof(kw[:lc]) isa UnitRange ||
+    if haskey(kw, :lc) && (kw[:lc] isa UnitRange ||
       typeof(kw[:lc]) <: Vector{<:Int} || typeof(kw[:lc]) <: Int)
       throw(ErrorException(
         "`UnitRange`, `Vector{<:Int}` or `Int` for `lc` is only allowed in function `sel_ls`"))
@@ -512,7 +549,7 @@ function def_kwargs(kw; calledby=:other)
   # Initialise default values that deviate from defaults in kwargs
   if calledby == :load_PlotData
     if !haskey(kw, :lc)  kw[:lc] = nothing  end
-    if !haskey(kw, :lt)  kw[:lt] = []  end
+    if !haskey(kw, :lt)  kw[:lt] = Real[]  end
     if !haskey(kw, :pt)  kw[:pt] = "None"  end
   elseif calledby == :sel_ls
     if !haskey(kw, :cs)  kw[:cs] = "default"  end
@@ -523,9 +560,112 @@ function def_kwargs(kw; calledby=:other)
 
   # Instantiate and return kwargs
   kw_args = kwargs()
-  for key in keys(kw)
-    setfield!(kw_args, key, kw[key])
+  for (key, val) in zip(keys(kw), values(kw))
+    setfield!(kw_args, key, val)
   end
+  kwargscheck(kw_args.ylabel, kw_args.lt, kw_args.pt, kw_args.lc, kw_args.cs,
+    kw_args.ylim, kw_args.Yticks, kw_args.yticks, kw_args.logscale,
+    kw_args.logremove, kw_args.axcolour, kw_args.twinax)
 
   return kw_args
+end
+
+
+function kwargscheck(ylabel::Union{AbstractString, Vector{<:AbstractString}},
+  lt::lt_type, pt::Union{String,Int,UnitRange{Int},Vector}, lc::lc_type,
+  cs::Union{String,Vector{<:String}}, ylim, Yticks::Union{Real,Vector{<:Real}},
+  yticks::Union{Real,Vector{<:Real}}, logscale::Union{String,Vector{<:String}},
+  logremove::Union{String,Vector{<:String}},
+  axcolour::Union{String,Symbol,Vector}, twinax::Vector{<:Int})
+
+  if ylabel isa Vector && (isempty(twinax) || length(ylabel) ≠ 2)
+    throw(DefinitionError(length(ylabel)))
+  end
+  if cs isa Vector && (isempty(twinax) || length(cs) ≠ 2)
+    throw(DefinitionError(length(cs)))
+  end
+  if ylim isa Vector
+    if isempty(twinax) || length(ylim) ≠ 2
+      throw(DefinitionError(length(ylim)))
+    elseif !all([types <: limtype for types in typeof.(ylim)])
+      throw(DefinitionError(
+        "`ylim` must be a vector with `limtype` objects", typeof(ylim)))
+    end
+  end
+  if Yticks isa Vector && (isempty(twinax) || length(Yticks) ≠ 2)
+    throw(DefinitionError(length(Yticks)))
+  end
+  if yticks isa Vector && (isempty(twinax) || length(yticks) ≠ 2)
+    throw(DefinitionError(length(yticks)))
+  end
+  if logscale isa Vector && (isempty(twinax) || length(logscale) ≠ 2)
+    throw(DefinitionError(length(logscale)))
+  end
+  if logremove isa Vector && (isempty(twinax) || length(logremove) ≠ 2)
+    throw(DefinitionError(length(logremove)))
+  end
+  if axcolour isa Vector
+    if isempty(twinax) || length(axcolour) ≠ 2
+      throw(DefinitionError(length(axcolour)))
+    elseif !all([types in DataType[String, Symbol] for types in typeof.(axcolour)])
+      throw(DefinitionError(
+        "`axcolour` must be a vector with `String` and/or `Symbol` objects",
+        typeof(axcolour)))
+    end
+  end
+end #function kwargscheck
+
+function vectorcheck(kw, len)
+  kw.lt = vectype(kw.lt)
+  if typeof(kw.lt)<:Vector{<:Real}
+    if isodd(length(kw.lt)) || 0 < length(kw.lt) < 4
+      throw(DefinitionError(
+        "`lt` must be a vector with an even number of at least 4 elements; length(lt) =",
+        length(kw.lt)))
+    end
+  elseif kw.lt isa Vector
+    for (i, el) in enumerate(kw.lt)
+      if !(typeof(el) <: Vector{<:Real} || el isa Tuple{Real,Real})
+        throw(DefinitionError(
+          string("`lt` must be a vector of `Vector{<:Real}` or `Tuple{Real,Real}` elements; ",
+            "DataType of $i. element = "), typeof(kw.lt)))
+      elseif el isa Vector && (isodd(length(el)) || 0 < length(el) < 4)
+        throw(DefinitionError(
+          string("`lt` must be a vector with an even number of at least 4 elements; ",
+            "length(lt) in $i. element = "), length(el)))
+      end
+    end
+    if length(kw.lt) ≠ len
+      throw(DefinitionError("length of `lt` and `PlotData` must be the same; length(lt) = ",
+        length(kw.lt)))
+    end
+  end
+  if kw.pt isa Vector
+    if length(kw.pt) ≠ len
+      throw(DefinitionError("length of `pt` and `PlotData` must be the same; length(pt) = ",
+        length(kw.pt)))
+    elseif !all([types in DataType[String, Int] for types in typeof.(kw.pt)])
+      throw(DefinitionError(
+        "`pt` must be a vector with `String` and/or `Int` objects", typeof(kw.pt)))
+    end
+  end
+  if kw.lc isa Vector
+    if length(kw.lc) ≠ len
+      throw(DefinitionError("length of `lc` and `PlotData` must be the same; length(lc) = ",
+        length(kw.lc)))
+    elseif !all([types in DataType[String, Symbol] for types in typeof.(kw.lc)])
+      throw(DefinitionError(
+        "`lc` must be a vector with `String` and/or `Symbol` objects", typeof(kw.lc)))
+    end
+  end
+end
+
+
+vectype(vec, dt::DataType=Real) = if vec isa Vector
+  isempty(vec) ? Real[] :
+    try [dt.(v) for v in vec]
+    catch; vec
+    end
+  else
+    return vec
 end

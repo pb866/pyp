@@ -1,40 +1,39 @@
 ### Functions associated with plotting data
 
 """
-    setup_plot(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, major_yticks, minor_yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
+    setup_plot(plot_list, twinax, ylab, logscale, logremove, xlims, ylims, Yticks, yticks, ptype, cs, lc, lt, pt, alpha, axcolour)
 
 If `twinax` is an array split `plot_list` into 2 datasets based on the indices
 in `twinax`. Assure all paramters concerning y data are arrays of length 2, if
 a second axis is allowed or length 1 otherwise. Return `plot_list` as array of
 2 or 1 distinct lists an the adjusted parameters.
 """
-function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove,
-                    major_yticks, minor_yticks, alpha, kw)
+function setup_plot(plot_list, kw::kwargs)
 
   # Start plot
-  fig, ax = plt.subplots(figsize=figsize)
+  fig, ax = plt.subplots(figsize=kw.figsize)
   ax = [ax]
   pltdata = deepcopy(plot_list)
 
   # Set alpha
-  [p.alpha = alpha for p in pltdata if alpha > 0]
+  [p.alpha = kw.alpha for p in pltdata if kw.alpha > 0]
   # Initialise parameters
   plt1 = PlotData[]; plt2 = PlotData[]
   cl1 = []; dt1 = []; mt1 = []
   cl2 = []; dt2 = []; mt2 = []
 
-  if !isempty(twinax)
+  if !isempty(kw.twinax)
     # Set 2nd axis in PyPlot, if twinax is not empty
     push!(ax, plt.twinx())
     # Check correct input of twinax
-    if length(twinax) ≠ length(pltdata)
+    if length(kw.twinax) ≠ length(pltdata)
       throw(ArgumentError(string("Array `twinax` must have the same length ",
         "as there are number of `PlotData` elements.")))
     end
 
     # Assign data to the axes
-    for i = 1:length(twinax)
-      if twinax[i] == 1
+    for i = 1:length(kw.twinax)
+      if kw.twinax[i] == 1
         push!(plt1, pltdata[i])
         # check whether an array of definitions or a single definition exists
         # and assign either the current array entry to the respective axis
@@ -56,11 +55,11 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove,
     end
 
     # Make sure, all parameters for both axes are arrays of length 2
-    if logscale isa String logscale = String[logscale, logscale]  end
-    if logremove isa String logremove = String[logremove, logremove]  end
+    if kw.logscale isa String kw.logscale = String[kw.logscale, kw.logscale]  end
+    if kw.logremove isa String kw.logremove = String[kw.logremove, kw.logremove]  end
     if kw.axcolour isa String kw.axcolour = String[kw.axcolour, kw.axcolour]  end
-    if major_yticks isa Int64 major_yticks = Int64[major_yticks, major_yticks]  end
-    if minor_yticks isa Int64 minor_yticks = Int64[minor_yticks, minor_yticks]  end
+    if kw.Yticks isa Int64 kw.Yticks = Int64[kw.Yticks, kw.Yticks]  end
+    if kw.yticks isa Int64 kw.yticks = Int64[kw.yticks, kw.yticks]  end
     if kw.xlim == nothing
       kw.xlim = (nothing, nothing)
     elseif kw.xlim isa Array
@@ -83,19 +82,17 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove,
     kw.lc isa Vector ? cl1 = kw.lc : cl1 = [kw.lc for i in pltdata]
     # If no 2nd axis, make sure, all parameters for both axes are arrays of length 1
     # and not single parameters (numbers, strings...)
-    if logscale isa String logscale = String[logscale]  end
-    if logremove isa String logremove = String[logremove]  end
+    if kw.logscale isa String kw.logscale = String[kw.logscale]  end
+    if kw.logremove isa String kw.logremove = String[kw.logremove]  end
     if kw.axcolour isa String kw.axcolour = String[kw.axcolour]  end
-    if major_yticks isa Real major_yticks = Int64[major_yticks]  end
-    if minor_yticks isa Real minor_yticks = Int64[minor_yticks]  end
+    if kw.Yticks isa Real Yticks = Int64[kw.Yticks]  end
+    if kw.yticks isa Real yticks = Int64[kw.yticks]  end
     if kw.xlim == nothing     kw.xlim = (nothing, nothing)  end
     if kw.ylim == nothing     kw.ylim = [(nothing, nothing)]
     elseif kw.ylim isa Tuple  kw.ylim = [kw.ylim]
     end
-    # if !isa(legpos, Array) legpos = [legpos]  end
-    # if legcolumns isa Int64  legcolumns = [legcolumns]  end
   end
-  if ylab isa AbstractString  ylab = String[ylab]  end
+  if kw.ylabel isa AbstractString  kw.ylabel = String[kw.ylabel]  end
   if length(ax) > 1
     pltdata = [plt1, plt2]
     if !isa(kw.cs, Vector) kw.cs = [kw.cs, kw.cs]  end
@@ -111,7 +108,7 @@ function setup_plot(plot_list, figsize, twinax, ylab, logscale, logremove,
   end
 
   # Return adjusted data
-  return pltdata, fig, ax, ylab, logscale, logremove, major_yticks, minor_yticks, kw
+  return pltdata, fig, ax, kw
 end #function setup_plot
 
 
@@ -124,20 +121,20 @@ element in `pltdata`, `lc`, `lt`, and `pt` must hold valid definitions of line c
 line and point (marker) types at this array position. The boolean `ax_2` is needed
 to specify, whether a second axis is used.
 """
-function set_style(pltdata, kw)
+function set_style(pltdata, kw::kwargs)
 
   # Reset line and marker types to solid lines and squares, respectively,
   # if plot_type is set to line, scatter or both (markers connected by lines)
   for i = 1:length(pltdata)
     if kw.plottype == "line"
-      [pltdata[i][j].dashes = Int64[] for j = 1:length(kw.lt[i])]
+      [pltdata[i][j].dashes = Real[] for j = 1:length(kw.lt[i]) if pltdata[i][j].dashes=="None"]
       [pltdata[i][j].marker = "None" for j = 1:length(kw.pt[i])]
     elseif kw.plottype == "scatter"
       [pltdata[i][j].dashes = "None" for j = 1:length(kw.lt[i])]
-      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i])]
+      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i]) if pltdata[i][j].marker=="None"]
     elseif kw.plottype == "both"
-      [pltdata[i][j].dashes = Int64[] for j = 1:length(kw.lt[i])]
-      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i])]
+      [pltdata[i][j].dashes = Real[] for j = 1:length(kw.lt[i]) if pltdata[i][j].dashes=="None"]
+      [pltdata[i][j].marker = "s" for j = 1:length(kw.pt[i]) if pltdata[i][j].marker=="None"]
     end
   end
 
@@ -146,7 +143,7 @@ function set_style(pltdata, kw)
   idx = []
   push!(idx, [i for i = 1:length(pltdata[1])])
   if length(kw.cs) == 2
-    kw.cs[1] == kw.cs[2] ? ind = length(idx[1]) : ind = 0
+    ind = kw.cs[1] == kw.cs[2] ? length(idx[1]) : 0
     push!(idx, [i+ind for i = 1:length(pltdata[2])])
   end
   # Set line/marker styles and colour for a chosen colour scheme
@@ -154,34 +151,41 @@ function set_style(pltdata, kw)
   for i = 1:length(pltdata)  if kw.cs[i]≠""
     for j = 1:length(pltdata[i])
       cl, dt, mt = sel_ls(cs=kw.cs[i], lc=idx[i][j], lt=idx[i][j], pt=idx[i][j])
-      pltdata[i][j].colour = cl
-      if kw.plottype ≠ "scatter"  pltdata[i][j].dashes = dt  end
-      if kw.plottype ≠ "line"  pltdata[i][j].marker = mt  end
+      if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = cl  end
+      if kw.plottype ≠ "scatter" && kw.lt[i][j] ≠ "default"  pltdata[i][j].dashes = dt  end
+      if kw.plottype ≠ "line" && kw.pt[i][j] ≠ "default"  pltdata[i][j].marker = mt  end
     end
   end  end
 
   # Set manually defined styles (overwrites previous settings)
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.lc[i][j] ≠ "default"  pltdata[i][j].colour = kw.lc[i][j]  end
+    if !(kw.lc[i][j]=="" || kw.lc[i][j]=="default")
+      pltdata[i][j].colour = kw.lc[i][j]
+    elseif isnothing(pltdata[i][j].colour)
+      pltdata[i][j].colour = sel_ls(cs="pyplot", lc=idx[i][j])[1]
+    end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.lt[i][j] ≠ "default" && pltdata[i][j].dashes ≠ "None"
+    if !(kw.lt[i][j]=="" || kw.lt[i][j]=="default") && pltdata[i][j].dashes ≠ "None"
       pltdata[i][j].dashes = kw.lt[i][j]
     end
   end
   for i = 1:length(kw.lc), j = 1:length(kw.lc[i])
-    if kw.pt[i][j] ≠ "default" && pltdata[i][j].dashes ≠ "None"
+    if !(kw.pt[i][j]=="" || kw.pt[i][j]=="default") && pltdata[i][j].dashes ≠ "None"
       pltdata[i][j].marker = kw.pt[i][j]
     end
   end
 
+  kw.lc = [p.colour for p in pltdata[1]]
+  kw.lt = [p.dashes for p in pltdata[1]]
+
   # Return adjusted PlotData
-  return pltdata
+  return pltdata, kw
 end #function set_style
 
 
 """
-    plt_DataWithErrors(pltdata, ax, offset)
+    plotDataWithErrors(pltdata, ax, offset)
 
 For each `PlotData` in array `pltdata` (and `ax`), retrieve the errors in the `PlotData` and
 plot according to specifications. For error bars of markers, the standard cap size is `3`,
@@ -189,7 +193,7 @@ which can be adjusted by an `offset` (positive or negative number to be added to
 
 Returns `fig` and `ax` (array of axes) for further plot modifications or printing.
 """
-function plt_DataWithErrors(pltdata, ax, offset)
+function plotDataWithErrors(pltdata, ax, offset)
   # Redefine errors for error bars
   xerr = redef_err(pltdata,:x,:x_lower,:x_upper)
   yerr = redef_err(pltdata,:y,:y_lower,:y_upper)
@@ -246,7 +250,7 @@ function plt_DataWithErrors(pltdata, ax, offset)
   end
 
   return pltdata, ax
-end #function plt_DataWithErrors
+end #function plotDataWithErrors
 
 
 """
@@ -257,18 +261,18 @@ Set x- and/or y-axis of `pltdata` to log scale for each `ax`, if the string
 Adjust minimum/maximum values of the respective axis for logscale, if `xlim` or
 `ylim` are `nothing`.
 """
-function set_axes(pltdata, ax, logscale, kw)
+function set_axes(pltdata, ax, kw::kwargs)
 
-  for i = 1:length(logscale)
-    if occursin('x', lowercase(logscale[i]))
+  for i = 1:length(kw.logscale)
+    if occursin('x', lowercase(kw.logscale[i]))
       ax[i].set_xlim(find_limits(pltdata[i], "x", kw.xlim))
-      ax[i].set_xscale("log")
+      ax[i].set_xscale("symlog")
     else
       ax[i].set_xlim(kw.xlim)
     end
-    if occursin('y', lowercase(logscale[i]))
+    if occursin('y', lowercase(kw.logscale[i]))
       ax[i].set_ylim(find_limits(pltdata[i], "y", kw.ylim[i]))
-      ax[i].set_yscale("log")
+      ax[i].set_yscale("symlog")
     else
       ax[i].set_ylim(kw.ylim[i])
     end
@@ -326,7 +330,7 @@ From the `plot_list` with `PlotData`, return a Vector of combined `xdata`
 and a vector with the `ydata` of each `PlotData`, where y data of missing `xdata`
 values is filled with `NaN`.
 """
-function get_stack(plot_list...)
+function get_stack(plot_list)
   # Combine all xdata
   xdata = sort(union([p.x for p in plot_list]...))
   labels = [p.label for p in plot_list]
@@ -361,70 +365,20 @@ end #function get_stack
 
 
 """
-    format_stack(plot_list, cs, lc, alpha) -> clr, α
-
-From the `PlotData` in `plot_list`, the definition of a colour scheme `cs` and,
-if `cs = "own"`, a list of colours (`lc`), return a list of colours (`clr`).
-
-Set `α` to `alpha`, if alpha is greater `0`, otherwise use the mean of the `alpha`
-fields in the `PhotData` or (if `0`) use `1` (no transparency).
-"""
-function format_stack(alpha, kw, plot_list...)
-
-  # Set opacity
-  α = [a.alpha for a in plot_list]
-  alpha > 0 ? α = alpha : stats.mean(α) > 0 ? α = stats.mean(α) : α = 1
-  # Set color scheme
-  clr = []; ln = []
-  for (i, plt) in enumerate(plot_list)
-    if kw.cs=="own"
-      # Set own stack colours with lc list
-      c = try kw.lc[i]
-      catch
-        @warn "Colour not defined for data $i. Using default."
-        sel_ls(cs="default", lc=i)[1]
-      end
-      # Set own stack colours with lc list
-      l = try kw.lt[i]
-      catch
-        @warn "Line type not defined for data $i. Using default."
-        sel_ls(cs="default", lt=i)[2]
-      end
-    elseif kw.cs==""
-      # Use colours from PlotData
-      c = plt.colour
-      l = plt.dashes
-    else
-      # Use colour sccheme define by cs
-      c, l = try sel_ls(cs=kw.cs,lc=i,lt=i)[1:2]
-      catch
-        @warn "Colour scheme $(kw.cs) not defined. Using default."
-        sel_ls(cs="default", lc=i)[1:2]
-      end
-    end
-    push!(clr,c); push!(ln,l)
-  end
-  kw.lc = clr; kw.lt = ln
-
-  return kw, α
-end #function format_stack
-
-
-"""
     print_stack(alpha, xdata, ydata, colours, lt, ax) -> fig, ax
 
 """
-function print_stack(xdata, ystack, ylines, border, labels, α, figsize, kw)
+function print_stack(xdata, ystack, ylines, labels, kw::kwargs)
 
   # Start plot
-  fig, ax = plt.subplots(figsize=figsize)
+  fig, ax = plt.subplots(figsize=kw.figsize)
 
   # Plot data
-  ax.stackplot(xdata, ystack, labels=labels, colors=kw.lc, alpha=α)
+  ax.stackplot(xdata, ystack, labels=labels, colors=kw.lc, alpha=kw.alpha)
 
   # Resume, if optional border are skipped
-  if border==0  return fig, ax  end
-  [ax.plot(xdata, ylines[i], color=kw.lc[i], dashes = kw.lt[i], alpha=border)
+  if kw.border==0  return fig, ax  end
+  [ax.plot(xdata, ylines[i], color=kw.lc[i], dashes = kw.lt[i], alpha=kw.border)
     for i = 1:length(ylines)]
 
   return fig, ax
@@ -435,18 +389,15 @@ end #function print_stack
 
 
 """
-function format_axes_and_annotations(fig, ax, plot_list, xlabel, ylabel,
-  timeformat, timescale, major_interval, minor_interval, fontsize,
-  major_xticks, major_yticks, minor_xticks, minor_yticks, ticksize,
-  framewidth, kw)
+function format_axes_and_annotations(fig, ax, plot_list, kw::kwargs)
 
   # Set plot title
-  ax[1].set_title(kw.ti, fontsize=fontsize+kw.ti_offset)
+  ax[1].set_title(kw.ti, fontsize=kw.fontsize+kw.ti_offset)
 
   # Generate axes labels
-  ax[1].set_xlabel(xlabel,fontsize=fontsize+kw.lbl_offset)
-  for n = 1:length(ylabel)
-    ax[n].set_ylabel(ylabel[n],fontsize=fontsize+kw.lbl_offset, color=kw.axcolour[n])
+  ax[1].set_xlabel(kw.xlabel,fontsize=kw.fontsize+kw.lbl_offset)
+  for n = 1:length(kw.ylabel)
+    ax[n].set_ylabel(kw.ylabel[n],fontsize=kw.fontsize+kw.lbl_offset, color=kw.axcolour[n])
   end
   [plt.setp(ax[n].get_yticklabels(),color=kw.axcolour[n]) for n = 1:length(kw.axcolour)]
 
@@ -459,33 +410,30 @@ function format_axes_and_annotations(fig, ax, plot_list, xlabel, ylabel,
 
   # Format axes and ticks
   if typeof(plot_list[1][1].x) <: Vector{<:Real}
-    ax = format_xdata(plot_list, ax, major_xticks, minor_xticks, kw.mticks,
-      ticksize, framewidth, fontsize)
+    ax = format_xdata(plot_list, ax, kw)
   else
-    fig, ax = format_timeseries(fig, ax, plot_list, timeformat, timescale,
-      major_interval, minor_interval, major_xticks, minor_xticks,
-      ticksize, framewidth, fontsize, kw.xlim)
+    fig, ax = format_timeseries(fig, ax, plot_list, kw)
   end
 
   # Format ticks and frame
   for i = 1:length(plot_list)
     ax[i].tick_params("both", which="both", direction="in", top=true, right=true,
-      labelsize=fontsize+kw.tick_offset, width=framewidth)
-    ax[i].grid(linestyle=":", linewidth = framewidth)
-    ax[i].spines["bottom"].set_linewidth(framewidth)
-    ax[i].spines["top"].set_linewidth(framewidth)
-    ax[i].spines["left"].set_linewidth(framewidth)
-    ax[i].spines["right"].set_linewidth(framewidth)
+      labelsize=kw.fontsize+kw.tick_offset, width=kw.framewidth)
+    ax[i].grid(linestyle=":", linewidth=kw.framewidth)
+    ax[i].spines["bottom"].set_linewidth(kw.framewidth)
+    ax[i].spines["top"].set_linewidth(kw.framewidth)
+    ax[i].spines["left"].set_linewidth(kw.framewidth)
+    ax[i].spines["right"].set_linewidth(kw.framewidth)
   end
 
   # Set yticks and optional minor yticks
-  for i = 1:length(major_yticks)  if major_yticks[i] > 0
-    yint = collect(ax[i].get_ylim()[1]:major_yticks[i]:ax[i].get_ylim()[2])
+  for i = 1:length(kw.Yticks)  if kw.Yticks[i] > 0
+    yint = collect(ax[i].get_ylim()[1]:kw.Yticks[i]:ax[i].get_ylim()[2])
     ax[i].set_yticks(yint)
   end  end
   # Set minor y ticks
-  for i = 1:length(minor_yticks)  if minor_yticks[i] > 0
-    my = plt.matplotlib.ticker.MultipleLocator(minor_yticks[i])
+  for i = 1:length(kw.yticks)  if kw.yticks[i] > 0
+    my = plt.matplotlib.ticker.MultipleLocator(kw.yticks[i])
     ax[i].yaxis.set_minor_locator(my)
   end  end
 
@@ -494,10 +442,10 @@ function format_axes_and_annotations(fig, ax, plot_list, xlabel, ylabel,
     pleg = vcat(ax[1].get_legend_handles_labels()[1], ax[2].get_legend_handles_labels()[1])
     plab = vcat(ax[1].get_legend_handles_labels()[2], ax[2].get_legend_handles_labels()[2])
     if any(plab .≠ "") && kw.legpos ≠ "None"
-      ax[2].legend(pleg, plab, fontsize=fontsize+kw.leg_offset, loc=kw.legpos, ncol=kw.legcols)
+      ax[2].legend(pleg, plab, fontsize=kw.fontsize+kw.leg_offset, loc=kw.legpos, ncol=kw.legcols)
     end
   elseif kw.legpos ≠ "None" && any([p.label≠"" for p in plot_list[1]])
-    ax[1].legend(fontsize=fontsize+kw.leg_offset, loc=kw.legpos, ncol=kw.legcols)
+    ax[1].legend(fontsize=kw.fontsize+kw.leg_offset, loc=kw.legpos, ncol=kw.legcols)
   end
 
   # Tight layout for plots with big labels
@@ -507,16 +455,15 @@ function format_axes_and_annotations(fig, ax, plot_list, xlabel, ylabel,
 end #function format_axes_and_annotations
 
 
-function format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
-  ticksize, framewidth, fontsize)
+function format_xdata(plot_list, ax, kw::kwargs)
   # Set ticks and optional minor ticks
-  if major_xticks > 0
-    xint = collect(ax[1].get_xlim()[1]:major_xticks:ax[1].get_xlim()[2])
+  if kw.Xticks > 0
+    xint = collect(ax[1].get_xlim()[1]:kw.Xticks:ax[1].get_xlim()[2])
     for i = 1:length(plot_list)  ax[i].set_xticks(xint)  end
   end
   # Set minor ticks
-  if mticks && minor_xticks > 0
-    mx = plt.matplotlib.ticker.MultipleLocator(minor_xticks)
+  if kw.mticks && kw.xticks > 0
+    mx = plt.matplotlib.ticker.MultipleLocator(kw.xticks)
     for i = 1:length(plot_list)
       ax[i].xaxis.set_minor_locator(mx)
     end
@@ -524,24 +471,22 @@ function format_xdata(plot_list, ax, major_xticks, minor_xticks, mticks,
 
   # Format ticks and frame
   for i = 1:length(plot_list)
-    ax[i].tick_params("both", which="major", length=ticksize[1]⋅framewidth)
-    ax[i].tick_params("both", which="minor", length=ticksize[2]⋅framewidth)
+    ax[i].tick_params("both", which="major", length=kw.ticksize[1]⋅kw.framewidth)
+    ax[i].tick_params("both", which="minor", length=kw.ticksize[2]⋅kw.framewidth)
   end
 
   return ax
 end #function format_xdata
 
-function format_timeseries(fig, ax, plot_list, timeformat, timescale, major_interval, minor_interval,
-  major_xticks, minor_xticks, ticksize, framewidth, fontsize, xlims)
+function format_timeseries(fig, ax, plot_list, kw::kwargs)
 
-  timeformat, majorlocator, minorlocator, majorformatter, minorformatter =
-    set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xticks,
-    major_interval, minor_interval)
+  kw.timeformat, majorlocator, minorlocator, majorformatter, minorformatter =
+    set_locator_and_formatter(kw)
 
   # Format ticks and frame
   for i = 1:length(plot_list)
     ### Format xlim to beginning of period in timeseries
-    ax[i] = set_timeperiod(ax[i], timescale, plot_list[1][1].x, xlims)
+    ax[i] = set_timeperiod(ax[i], plot_list[1][1].x, kw)
     # ax[i].set_xlim(left=plot_list[1][1].x[1], right=plot_list[1][1].x[end])
     ax[i].xaxis.set_major_formatter(majorformatter)
     ax[i].xaxis.set_minor_formatter(minorformatter)
@@ -554,162 +499,162 @@ function format_timeseries(fig, ax, plot_list, timeformat, timescale, major_inte
 end #function format_timeseries
 
 
-function set_locator_and_formatter(timeformat, timescale, major_xticks, minor_xticks,
-  major_interval, minor_interval)
+function set_locator_and_formatter(kw::kwargs)
 
-  if timescale == timescale == "centuries"
-    if timeformat == ""  timeformat = "%Y"  end
-    if all(major_xticks .> 0)  # Set major x ticks
-      majorlocator = plt.matplotlib.dates.YearLocator(major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.YearLocator(major_interval)
+  if kw.timescale == "centuries"
+    if kw.timeformat == ""  kw.timeformat = "%Y"  end
+    if all(kw.Xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.YearLocator(kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.YearLocator(kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.YearLocator(25)
     end
-    if all(minor_xticks .> 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.YearLocator(minor_xticks)
-    elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.YearLocator(minor_interval)
+    if all(kw.xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.YearLocator(kw.xticks)
+    elseif kw.minor_interval > 0
+      minorlocator = plt.matplotlib.dates.YearLocator(kw.minor_interval)
     else #default
       minorlocator = plt.matplotlib.dates.YearLocator(5)
     end
-  elseif timescale == "decades"
-    if timeformat == ""  timeformat = "%Y"  end
-    if all(major_xticks .> 0)  # Set major x ticks
-      majorlocator = plt.matplotlib.dates.YearLocator(major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.YearLocator(major_interval)
+  elseif kw.timescale == "decades"
+    if kw.timeformat == ""  kw.timeformat = "%Y"  end
+    if all(kw.Xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.YearLocator(kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.YearLocator(kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.YearLocator(5)
     end
-    if all(minor_xticks .> 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=minor_xticks)
+    if all(kw.xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=kw.xticks)
     elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.MonthLocator(interval=minor_interval)
+      minorlocator = plt.matplotlib.dates.MonthLocator(interval=kw.minor_interval)
     else #default
       minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=1)
     end
-  elseif timescale == "years"
-    if timeformat == ""  timeformat = "%Y"  end
-    if all(major_xticks .> 0)  # Set major x ticks
-      major_xticks isa Vector ?
-        majorlocator = plt.matplotlib.dates.MonthLocator(bymonth=major_xticks) :
-        majorlocator = plt.matplotlib.dates.YearLocator(major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.YearLocator(major_interval)
+  elseif kw.timescale == "years"
+    if kw.timeformat == ""  kw.timeformat = "%Y"  end
+    if all(kw.Xticks .> 0)  # Set major x ticks
+      kw.Xticks isa Vector ?
+        majorlocator = plt.matplotlib.dates.MonthLocator(bymonth=kw.Xticks) :
+        majorlocator = plt.matplotlib.dates.YearLocator(kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.YearLocator(kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.YearLocator()
     end
-    if all(minor_xticks .> 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=minor_xticks)
+    if all(kw.xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=kw.xticks)
     elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.MonthLocator(interval=minor_interval)
+      minorlocator = plt.matplotlib.dates.MonthLocator(interval=kw.minor_interval)
     else #default
       minorlocator = plt.matplotlib.dates.MonthLocator(bymonth=[1,4,7,10])
     end
-  elseif timescale == "months"
-    if timeformat == ""  timeformat = "%B"  end
-    if all(major_xticks .> 0)  # Set major x ticks
-      majorlocator = plt.matplotlib.dates.MonthLocator(bymonth=major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.MonthLocator(interval=major_interval)
+  elseif kw.timescale == "months"
+    if kw.timeformat == ""  kw.timeformat = "%B"  end
+    if all(kw.Xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.MonthLocator(bymonth=kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.MonthLocator(interval=kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.MonthLocator(interval=1)
     end
-    if all(minor_xticks .> 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=minor_xticks)
-    elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.DayLocator(interval=minor_interval)
+    if all(kw.xticks .> 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=kw.xticks)
+    elseif kw.minor_interval > 0
+      minorlocator = plt.matplotlib.dates.DayLocator(interval=kw.minor_interval)
     else #default
         minorlocator = plt.matplotlib.dates.DayLocator(bymonthday=16)
     end
-  elseif timescale == "weeks"
-    if timeformat == ""  timeformat = "%-d. %b"  end
-    if all(major_xticks .> 0)  # Set major x ticks
-      majorlocator = plt.matplotlib.dates.DayLocator(bymonthday=major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.DayLocator(interval=major_interval)
+  elseif kw.timescale == "weeks"
+    if kw.timeformat == ""  kw.timeformat = "%-d. %b"  end
+    if all(kw.Xticks .> 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.DayLocator(bymonthday=kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.DayLocator(interval=kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.DayLocator(interval=1)
     end
-    if all(minor_xticks .≥ 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
-    elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.HourLocator(interval=minor_interval)
+    if all(kw.xticks .≥ 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=kw.xticks)
+    elseif kw.minor_interval > 0
+      minorlocator = plt.matplotlib.dates.HourLocator(interval=kw.minor_interval)
     else #default
         minorlocator = plt.matplotlib.dates.HourLocator(byhour=[0,6,12,18])
     end
-  elseif timescale == "days"
-    if timeformat == ""
-      major_xticks isa Vector ? timeformat = "%-d. %b, %H:%M" : timeformat = "%-d. %b"
+  elseif kw.timescale == "days"
+    if kw.timeformat == ""
+      kw.Xticks isa Vector ? kw.timeformat = "%-d. %b, %H:%M" : kw.timeformat = "%-d. %b"
     end
-    if (major_xticks isa Vector && all(major_xticks .≥ 0)) || major_xticks > 0  # Set major x ticks
-      major_xticks isa Vector ?
-        majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks) :
-        majorlocator = plt.matplotlib.dates.DayLocator(bymonthday=major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.DayLocator(interval=major_interval)
+    if (kw.Xticks isa Vector && all(kw.Xticks .≥ 0)) || kw.Xticks > 0  # Set major x ticks
+      kw.Xticks isa Vector ?
+        majorlocator = plt.matplotlib.dates.HourLocator(byhour=kw.Xticks) :
+        majorlocator = plt.matplotlib.dates.DayLocator(bymonthday=kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.DayLocator(interval=kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.DayLocator(interval=1)
     end
-    if all(minor_xticks .≥ 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.HourLocator(byhour=minor_xticks)
-    elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.HourLocator(interval=minor_interval)
+    if all(kw.xticks .≥ 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.HourLocator(byhour=kw.xticks)
+    elseif kw.minor_interval > 0
+      minorlocator = plt.matplotlib.dates.HourLocator(interval=kw.minor_interval)
     else #default
         minorlocator = plt.matplotlib.dates.HourLocator(byhour=[0,6,12,18])
     end
-  elseif timescale == "hours"
-    if timeformat == ""  timeformat = "%H:%M"  end
-    if all(major_xticks .≥ 0)  # Set major x ticks
-      majorlocator = plt.matplotlib.dates.HourLocator(byhour=major_xticks)
-    elseif major_interval > 0
-      majorlocator = plt.matplotlib.dates.HourLocator(interval=major_interval)
+  elseif kw.timescale == "hours"
+    if kw.timeformat == ""  kw.timeformat = "%H:%M"  end
+    if all(kw.Xticks .≥ 0)  # Set major x ticks
+      majorlocator = plt.matplotlib.dates.HourLocator(byhour=kw.Xticks)
+    elseif kw.major_interval > 0
+      majorlocator = plt.matplotlib.dates.HourLocator(interval=kw.major_interval)
     else #default
       majorlocator = plt.matplotlib.dates.HourLocator(interval=1)
     end
-    if all(minor_xticks .≥ 0)  # Set minor x ticks
-      minorlocator = plt.matplotlib.dates.MinuteLocator(byminute=minor_xticks)
-    elseif minor_interval > 0
-      minorlocator = plt.matplotlib.dates.MinuteLocator(interval=minor_interval)
+    if all(kw.xticks .≥ 0)  # Set minor x ticks
+      minorlocator = plt.matplotlib.dates.MinuteLocator(byminute=kw.xticks)
+    elseif kw.minor_interval > 0
+      minorlocator = plt.matplotlib.dates.MinuteLocator(interval=kw.minor_interval)
     else #default
         minorlocator = plt.matplotlib.dates.MinuteLocator(byminute=[0,15,30,45])
     end
   end
-  majorformatter = plt.matplotlib.dates.DateFormatter(timeformat)
+  majorformatter = plt.matplotlib.dates.DateFormatter(kw.timeformat)
   minorformatter = plt.matplotlib.dates.DateFormatter("")
 
-  return timeformat, majorlocator, minorlocator, majorformatter, minorformatter
+  return kw.timeformat, majorlocator, minorlocator, majorformatter, minorformatter
 end
 
-function set_timeperiod(ax, timescale, xdata, xlim)
-  if xlim[1] == nothing
-    if timescale == "centuries"
+
+function set_timeperiod(ax, xdata, kw::kwargs)
+  if kw.xlim[1] == nothing
+    if kw.timescale == "centuries"
       ax.set_xlim(left=Dates.floor(xdata[1], Dates.Year(25)))
-    elseif timescale == "decades"
+    elseif kw.timescale == "decades"
       ax.set_xlim(left=Dates.floor(xdata[1], Dates.Year(5)))
-    elseif timescale == "years"
+    elseif kw.timescale == "years"
       ax.set_xlim(left=Dates.floor(xdata[1], Dates.Year))
-    elseif timescale == "months"
+    elseif kw.timescale == "months"
       ax.set_xlim(left=Dates.floor(xdata[1], Dates.Month))
-    elseif timescale == "weeks" || timescale == "days"
+    elseif kw.timescale == "weeks" || timescale == "days"
       ax.set_xlim(left=Dates.floor(xdata[1], Dates.Day))
-    elseif timescale == "hours"
+    elseif kw.timescale == "hours"
       ax.set_xlim(left=Dates.floor(xdata[1], Dates.Hour))
     end
   end
-  if xlim[2] == nothing
-    if timescale == "centuries"
+  if kw.xlim[2] == nothing
+    if kw.timescale == "centuries"
       ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Year(25)))
-    elseif timescale == "decades"
+    elseif kw.timescale == "decades"
       ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Year(5)))
-    elseif timescale == "years"
+    elseif kw.timescale == "years"
       ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Year))
-    elseif timescale == "months"
+    elseif kw.timescale == "months"
       ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Month))
-    elseif timescale == "weeks" || timescale == "days"
+    elseif kw.timescale == "weeks" || timescale == "days"
       ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Day))
-    elseif timescale == "hours"
+    elseif kw.timescale == "hours"
       ax.set_xlim(right=Dates.ceil(xdata[end], Dates.Hour))
     end
   end
