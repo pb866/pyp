@@ -176,8 +176,11 @@ function set_style(pltdata, kw::kwargs)
     end
   end
 
+  kw.lc = [p.colour for p in pltdata[1]]
+  kw.lt = [p.dashes for p in pltdata[1]]
+
   # Return adjusted PlotData
-  return pltdata
+  return pltdata, kw
 end #function set_style
 
 
@@ -327,7 +330,7 @@ From the `plot_list` with `PlotData`, return a Vector of combined `xdata`
 and a vector with the `ydata` of each `PlotData`, where y data of missing `xdata`
 values is filled with `NaN`.
 """
-function get_stack(plot_list...)
+function get_stack(plot_list)
   # Combine all xdata
   xdata = sort(union([p.x for p in plot_list]...))
   labels = [p.label for p in plot_list]
@@ -359,58 +362,6 @@ function get_stack(plot_list...)
   # Return combined x data and stacked y data
   return xdata, ystack, labels
 end #function get_stack
-
-
-"""
-    format_stack(plot_list, cs, lc, alpha) -> clr, α
-
-From the `PlotData` in `plot_list`, the definition of a colour scheme `cs` and,
-if `cs = "own"`, a list of colours (`lc`), return a list of colours (`clr`).
-
-Set `α` to `alpha`, if alpha is greater `0`, otherwise use the mean of the `alpha`
-fields in the `PhotData` or (if `0`) use `1` (no transparency).
-"""
-function format_stack(kw::kwargs, plot_list...)
-
-  # Set opacity
-  if kw.alpha == 0
-    α = [a.alpha for a in plot_list]
-    kw.alpha = stats.mean(α) > 0 ? stats.mean(α) : 1
-  end
-  # Set color scheme
-  clr = []; ln = []
-  for (i, plt) in enumerate(plot_list)
-    if kw.cs=="own"
-      # Set own stack colours with lc list
-      c = try kw.lc[i]
-      catch
-        @warn "Colour not defined for data $i. Using default."
-        sel_ls(cs="default", lc=i)[1]
-      end
-      # Set own stack colours with lc list
-      l = try kw.lt[i]
-      catch
-        @warn "Line type not defined for data $i. Using default."
-        sel_ls(cs="default", lt=i)[2]
-      end
-    elseif kw.cs==""
-      # Use colours from PlotData
-      c = plt.colour
-      l = plt.dashes
-    else
-      # Use colour sccheme define by cs
-      c, l = try sel_ls(cs=kw.cs,lc=i,lt=i)[1:2]
-      catch
-        @warn "Colour scheme $(kw.cs) not defined. Using default."
-        sel_ls(cs="default", lc=i)[1:2]
-      end
-    end
-    push!(clr,c); push!(ln,l)
-  end
-  kw.lc = clr; kw.lt = ln
-
-  return kw
-end #function format_stack
 
 
 """

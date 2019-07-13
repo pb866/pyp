@@ -49,7 +49,7 @@ function load_PlotData(plotdata::DataFrame; err::String="None", SF::Real=1,
   pltdata = create_PlotData_with_errors(plotdata, err, SF, select_cols)
 
   # Modify formats of PlotData from kwargs
-  kwdict = def_aliases(kw_aliases...)
+  kwdict = def_aliases(kw_aliases)
   kw = def_kwargs(kwdict, calledby=:load_PlotData)
   pltdata = def_PlotDataFormats(pltdata, kw, kwdict, label, alpha)
   return pltdata
@@ -164,7 +164,7 @@ Keyword arguments for `function plot_data` are:
 function plot_data(plot_list::PlotData...; kw_args...)
 
   # Check kwarg aliases and set default values
-  kwdict = def_aliases(kw_args...)
+  kwdict = def_aliases(kw_args)
   kw = def_kwargs(kwdict, calledby=:plot_data)
   vectorcheck(kw, length(plot_list))
 
@@ -175,7 +175,7 @@ function plot_data(plot_list::PlotData...; kw_args...)
   pltdata = setup_log(pltdata, kw)
 
   # set colour scheme and line/marker types
-  pltdata = set_style(pltdata, kw)
+  pltdata, kw = set_style(pltdata, kw)
 
   # Plot data and associated errors
   for i = 1:length(pltdata)
@@ -270,25 +270,27 @@ function plot_stack(plot_list::PlotData...; kw_args...)
   # Make a deepcopy of plot_list to leave original PlotData unaltered
   pltdata = deepcopy(plot_list)
   # Check kwarg aliases and set default values
-  kwdict = def_aliases(kw_args...)
+  kwdict = def_aliases(kw_args)
   kw = def_kwargs(kwdict, calledby=:plot_stack)
+  vectorcheck(kw, length(plot_list))
   kw = adjust_kwargs(kw, pltdata)
 
   # Get x and y data
-  xdata, ystack, labels = get_stack(pltdata...)
+  xdata, ystack, labels = get_stack(pltdata)
   ystack, ylines = interpolate_stack(xdata, ystack, kw)
 
   # Format plot, set colour scheme
-  kw = format_stack(kw, pltdata...)
+  # kw = format_stack(kw, pltdata)
+  pltdata, kw = set_style([pltdata], kw)
 
   # Plot data as stack with optional boundary lines
   fig, ax = print_stack(xdata, ystack, ylines, labels, kw)
 
   # Set axis limits and log scales
-  ax = set_axes([pltdata], [ax], kw)
+  ax = set_axes(pltdata, [ax], kw)
 
   # Format plot
-  fig, ax = format_axes_and_annotations(fig, ax, [pltdata], kw)
+  fig, ax = format_axes_and_annotations(fig, ax, pltdata, kw)
 
 
   # Return PyPlot data
@@ -308,7 +310,7 @@ Single colours/line types using integers or subsets using unit ranges `m:n` may 
 function sel_ls(; kw_aliases...)
 
   # Handle kwargs
-  kwdict = def_aliases(kw_aliases...)
+  kwdict = def_aliases(kw_aliases)
   kw = def_kwargs(kwdict, calledby=:sel_ls)
 
   # Manually define sets of colour schemes

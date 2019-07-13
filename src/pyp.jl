@@ -31,7 +31,6 @@ as well as stacked area plots.
 - checkaliases
 - checkalias
 - get_stack
-- format_stack
 - print_stack
 - format_axes_and_annotations
 """
@@ -72,7 +71,8 @@ Base.showerror(io::IO, e::DefinitionError) =
   print(io, typeof(e), "\n", e.msg, "\033[0m", e.data)
 # Define default message
 DefinitionError(data) =
-  DefinitionError("`Vector` must be of length(2) and `twinax` must be set; length: ", data)
+  DefinitionError("`Vector` must be of length(2) and `twinax` must be set; length: ",
+  data)
 
 
 ### NEW TYPES

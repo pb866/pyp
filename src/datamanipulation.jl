@@ -357,7 +357,7 @@ end #function index2range
 
 
 """
-function def_aliases(kw_aliases...)
+function def_aliases(kw_aliases)
   # Define all sets of keyword argument aliases
   ti_aliases = (:ti, :title)
   lt_aliases = (:lt, :ls, :dt, :linetype, :linestyle, :line_type, :line_style,
@@ -402,7 +402,7 @@ function def_aliases(kw_aliases...)
   kw_args = Dict(kw_aliases)
   input_kwargs = [intersect(alias, keys(kw_args)) for alias in aliases]
   # Define default parameters of type kwargs
-  refined_kwargs = Dict{Symbol,Any}()
+  refined_kwargs = Dict()
 
   # Overwrite default values with values of argument list
   # and warn of duplicate definitions
@@ -425,9 +425,19 @@ function adjust_kwargs(kw::kwargs, pltdata)
   if kw.xlim == nothing  kw.xlim = (nothing, nothing)  end
   kw.ylim == nothing ? kw.ylim = [(nothing, nothing)] : kw.ylim = [kw.ylim]
   kw.axcolour = ["black"]
-  kw.Yticks = [ kw.Yticks]
-  kw.yticks = [ kw.yticks]
+  kw.Yticks = [kw.Yticks]
+  kw.yticks = [kw.yticks]
   kw.logscale = [kw.logscale]
+  kw.lt isa String || kw.lt isa Tuple{Real,Real} || typeof(kw.lt) <: Vector{<:Real} ?
+    kw.lt = [[kw.lt for l in pltdata]] : kw.lt = [kw.lt]
+  kw.lc isa String || kw.lc isa Symbol ?
+    kw.lc = [[kw.lc for l in pltdata]] : kw.lc = [kw.lc]
+  kw.pt = [["default" for p in pltdata]]
+  if kw.cs isa String  kw.cs = [kw.cs]  end
+  if kw.alpha == 0
+    α = [a.alpha for a in pltdata]
+    kw.alpha = stats.mean(α) > 0 ? stats.mean(α) : 1
+  end
 
   for (i, p) in enumerate(pltdata)
     if p.colour == nothing
@@ -482,7 +492,7 @@ function create_PlotData_with_errors(plotdata, err, SF, select_cols)
 end #function create_PlotData_with_errors
 
 
-function def_PlotDataFormats(pltdata, kw::kwargs, kwdict::Dict{Symbol,Any}, label, alpha)
+function def_PlotDataFormats(pltdata, kw::kwargs, kwdict::Dict, label, alpha)
   # Loop over fields as used in kwargs and PlotData
   for (k, p) in zip([:pt, :lt, :lc, :lw], [:marker, :dashes, :colour, :lw])
     if k in keys(kwdict)
@@ -499,9 +509,9 @@ end #function def_PlotDataFormats
 
 
 """
-function def_kwargs(kw::Dict{Symbol,Any}; calledby=:other)
+function def_kwargs(kw::Dict; calledby=:other)
   # Refine type checks before instantiating kwargs with simple type tests
-  if haskey(kw, :lt)  kw[:lt] = emptyvec(kw[:lt])  end
+  if haskey(kw, :lt)  kw[:lt] = vectype(kw[:lt])  end
   if calledby ≠ :load_PlotData && haskey(kw, :lc) && kw[:lc] == nothing
     throw(ErrorException(
       "`nothing` in `lc` is only allowed in function `load_PlotData`"))
@@ -550,8 +560,8 @@ function def_kwargs(kw::Dict{Symbol,Any}; calledby=:other)
 
   # Instantiate and return kwargs
   kw_args = kwargs()
-  for key in keys(kw)
-    setfield!(kw_args, key, kw[key])
+  for (key, val) in zip(keys(kw), values(kw))
+    setfield!(kw_args, key, val)
   end
   kwargscheck(kw_args.ylabel, kw_args.lt, kw_args.pt, kw_args.lc, kw_args.cs,
     kw_args.ylim, kw_args.Yticks, kw_args.yticks, kw_args.logscale,
@@ -605,8 +615,8 @@ function kwargscheck(ylabel::Union{AbstractString, Vector{<:AbstractString}},
   end
 end #function kwargscheck
 
-
 function vectorcheck(kw, len)
+  kw.lt = vectype(kw.lt)
   if typeof(kw.lt)<:Vector{<:Real}
     if isodd(length(kw.lt)) || 0 < length(kw.lt) < 4
       throw(DefinitionError(
@@ -651,17 +661,11 @@ function vectorcheck(kw, len)
 end
 
 
-function emptyvec(vec, dt::DataType=Real)
-  if vec isa Vector && isempty(vec)
-    print("if")
-    vec = dt[]
-  elseif vec isa Vector
-    v = []
-    [el isa Vector && isempty(el) ? push!(v, dt[]) : push!(v, el) for el in vec]
-    vec = v
-  end
-
-  return vec
-end #function emptyvec
-
-lt = emptyvec([[], [2.0,3], (2,3), "a"])
+vectype(vec, dt::DataType=Real) = if vec isa Vector
+  isempty(vec) ? Real[] :
+    try [dt.(v) for v in vec]
+    catch; vec
+    end
+  else
+    return vec
+end
